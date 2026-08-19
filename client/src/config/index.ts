@@ -1,3 +1,5 @@
+export * from "./chapters";
+
 export const APP_INFO = {
   name: "SORAN - Layer [EP]", // 웹사이트의 이름
   title: "SORAN - Layer [EP]", // 웹사이트의 기본 제목
