@@ -10,13 +10,17 @@
   --aspect-banner: 4 / 1;
 
   /* color */
-  --color-background: #FFFCF9;
   --color-black: #000000;
   --color-white: #FFFFFF;
+  --color-primary: #979797;
+  --color-yellow: #eaca44;
+  --color-green: #b7d14a;
+  --color-orange: #e89e1c;
+  --color-purple: #9d7ec4;
+  --color-pink: #ed96b9;
 
 
   /* font */
-
 
   --animate-onload: onload 2s ease-out forwards;
   --animate-gravity: gravity 0.5s ease-in-out forwards;
@@ -77,12 +81,12 @@
   input:focus,
   textarea:focus {
     outline: none;
-    caret-color: #000000;
+    caret-color: var(--color-primary);
   }
 
   input:-internal-autofill-selected {
-    background-color: #FFFCF9 !important;
-    color: #000 !important;
+    background-color: var(--color-background) !important;
+    color: var(--color-primary) !important;
   }
 
   select {
@@ -100,8 +104,10 @@
     width: 100%;
     height: 100dvh;
     overflow: hidden;
-    background-color: var(--color-background);
-    color: var(--color-black);
+    font-family: 'Sandoll DanpyunsunB', sans-serif;
+    font-weight: 400;
+    background-color: var(--color-white);
+    color: var(--color-primary);
     font-size: 100%;
   }
 

@@ -1,24 +1,24 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
-const isIndexable = process.env.NEXT_PUBLIC_SITE_INDEXABLE === "true";
+const isIndexable = process.env.NEXT_PUBLIC_SITE_INDEXABLE === 'true'
 
 const nextConfig: NextConfig = {
   async headers() {
-    if (isIndexable) return [];
+    if (isIndexable) return []
 
     return [
       {
-        source: "/:path*",
+        source: '/:path*',
         headers: [
           {
-            key: "X-Robots-Tag",
-            value: "noindex, nofollow, noarchive, nosnippet",
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive, nosnippet',
           },
         ],
       },
-    ];
+    ]
   },
-    allowedDevOrigins: ['192.168.45.47'],
-};
+  allowedDevOrigins: ['192.168.45.98'],
+}
 
-export default nextConfig;
+export default nextConfig

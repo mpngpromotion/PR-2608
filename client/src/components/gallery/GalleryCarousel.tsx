@@ -19,7 +19,7 @@ export function GalleryCarousel() {
 
   return (
     <Swiper
-      className='h-full w-full '
+      className='h-auto w-full max-w-lg overflow-visible'
       slidesPerView={1}
       effect={'cards'}
       cardsEffect={{
