@@ -29,7 +29,7 @@ interface LetterGather {
 }
 
 // TODO(user): 실제 디자인에 맞게 좌표/회전값 조정
-const CENTER: GatherPoint = { x: 0, y: -3, rotate: 0 }
+const CENTER: GatherPoint = { x: 0, y: 0, rotate: 0 }
 const GATHER: LetterGather[] = [
   {
     letter: 'L',
@@ -117,6 +117,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {GATHER.map(({ letter, scatter, grouped }) => {
         return (
           <motion.div
@@ -135,6 +136,7 @@ export default function Home() {
           </motion.div>
         )
       })}
+
       <motion.div
         id='gathered-background'
         style={{
@@ -171,55 +173,66 @@ export default function Home() {
         </motion.span>
       </motion.div>
 
-      {/* 다 모이면 나타나는 더미 링크 */}
-      <motion.div
-        className='pointer-events-none absolute inset-0 z-0'
-        initial={false}
-        animate={{ opacity: isGrouped ? 1 : 0 }}
-        transition={{
-          duration: 0.4,
-          delay: isGrouped ? 0.35 : 0,
-          ease: 'easeOut',
-        }}
-      >
-        {/* 소란 공식페이지 */}
-        <motion.a
-          href={`https://soranofficial.com`}
-          target='_blank'
-          rel='noopener noreferrer'
+      {/* 다 모이면 나타나는 더미 링크 (페이드는 부모가 아닌 자식마다 개별 적용) */}
+      <div className='pointer-events-none absolute inset-0 z-0 checking flex flex-col justify-between items-center'>
+        {/* 가이드 */}
+        <div id='top-space' className='checking border-blue-600 w-full h-full grid grid-cols-6 grid-rows-6'>
+          {[...Array(36)].map((_, i) => (
+            <div key={i} className='checking border-blue-600 w-full h-full'></div>
+          ))}
+        </div>
+
+        <div
+          id='album-space'
+          className='checking border-blue-600 aspect-square h-auto w-[50vw] max-w-md shrink-0'
+        ></div>
+        <div id='bottom-space' className='checking border-blue-600 w-full h-full grid grid-cols-6 grid-rows-6'>
+          {[...Array(36)].map((_, i) => (
+            <div key={i} className='checking border-blue-600 w-full h-full'></div>
+          ))}
+        </div>
+
+        <AliasAction
+          tag='a'
+          link='https://soranofficial.com'
+          imgSrc={`/img/icons/soran.png`}
+          imgAlt='소란 공식페이지'
           className={classNames('absolute top-[10%] left-14 w-28', commonTransition)}
-          style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
-        >
-          <img src={`/img/icons/soran.png`} alt='소란 공식페이지' className='w-full h-full object-contain' />
-        </motion.a>
+          isGrouped={isGrouped}
+        />
 
         {/* 무드필름 만들기 */}
-        <motion.button
-          onClick={() => router.push('/mood-film')}
+        <AliasAction
+          tag='button'
+          link='/mood-film'
+          imgSrc={`/img/icons/moodflim.png`}
+          imgAlt='무드필름 만들기'
           className={classNames('absolute top-[18%] right-4 w-28', commonTransition)}
-          style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
-        >
-          <img src={`/img/icons/moodflim.png`} alt='무드필름 만들기' className='w-full h-full object-contain' />
-        </motion.button>
+          isGrouped={isGrouped}
+        />
 
         {/* 갤러리 */}
-        <motion.button
-          onClick={() => router.push('/gallery')}
+        <AliasAction
+          tag='button'
+          link='/gallery'
+          imgSrc={`/img/icons/gallery.png`}
+          imgAlt='갤러리'
           className={classNames('absolute bottom-[20%] left-20 w-16', commonTransition)}
-          style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
-        >
-          <img src={`/img/icons/gallery.png`} alt='갤러리' className='w-full h-full object-contain' />
-        </motion.button>
+          isGrouped={isGrouped}
+        />
 
         {/* 가사게임 */}
-        <motion.button
-          onClick={() => router.push('/lyrics')}
+        <AliasAction
+          tag='button'
+          link='/lyrics'
+          imgSrc={`/img/icons/lyric.png`}
+          imgAlt='가사 게임'
           className={classNames('absolute bottom-[8%] right-8 w-24', commonTransition)}
-          style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
-        >
-          <img src={`/img/icons/lyric.png`} alt='가사 게임' className='w-full h-full object-contain' />
-        </motion.button>
-        <motion.div className='absolute bottom-[8%] left-1/2 flex -translate-x-1/2 gap-4'>
+          isGrouped={isGrouped}
+        />
+
+        {/* 소셜 미디어 링크 */}
+        <div className='absolute bottom-[8%] left-1/2 flex -translate-x-1/2 gap-4'>
           {[
             {
               name: 'youtube',
@@ -234,19 +247,64 @@ export default function Home() {
               link: 'https://www.youtube.com/@soranofficial',
             },
           ].map((site) => (
-            <motion.a
+            <AliasAction
+              tag='a'
               key={site.name}
-              href={`https://${site.name}.com`}
-              target='_blank'
-              rel='noopener noreferrer'
-              className={classNames('w-12', site.name === 'x' ? '-ml-1' : '', commonTransition)}
-              style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
-            >
-              <img src={`/img/icons/${site.name}.png`} alt={site.name} className='w-full h-full object-contain' />
-            </motion.a>
+              link={site.link}
+              imgSrc={`/img/icons/${site.name}.png`}
+              imgAlt={site.name}
+              className={classNames('w-12', site.name === 'x' ? '-ml-1' : '')}
+              isGrouped={isGrouped}
+            />
           ))}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
+  )
+}
+
+const AliasAction = ({
+  tag,
+  link,
+  imgSrc,
+  imgAlt,
+  className,
+  isGrouped,
+}: {
+  tag: 'button' | 'a'
+  link: string
+  imgSrc: string
+  imgAlt: string
+  className?: string
+  isGrouped: boolean
+}) => {
+  const router = useRouter()
+
+  const handleClick = () => {
+    router.push(link)
+  }
+
+  return (
+    <>
+      <motion.div
+        className={classNames(className, commonTransition)}
+        style={{ pointerEvents: isGrouped ? 'auto' : 'none' }}
+        initial={false}
+        animate={{ opacity: isGrouped ? 1 : 0 }}
+        transition={{ duration: 0.4, delay: isGrouped ? 0.35 : 0, ease: 'easeOut' }}
+      >
+        {tag === 'a' ? (
+          <a href={link} className='w-full h-full' target='_blank' rel='noopener noreferrer'>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imgSrc} alt={imgAlt} className='w-full h-full object-contain' />
+          </a>
+        ) : (
+          <button className='w-full h-full' onClick={handleClick}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imgSrc} alt={imgAlt} className='w-full h-full object-contain' />
+          </button>
+        )}
+      </motion.div>
+    </>
   )
 }

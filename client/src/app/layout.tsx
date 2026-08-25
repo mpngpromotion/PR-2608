@@ -22,7 +22,7 @@ export default function RootLayout({
         ></link>
       </head>
       <body>
-        <Layout>{children}</Layout>
+        <Layout landing>{children}</Layout>
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ''} />
       </body>
     </html>
