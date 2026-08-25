@@ -15,5 +15,5 @@ export function Layout({ children, landing }: LayoutProps) {
       </main>
     )
 
-  return <main className='flex min-h-dvh flex-col'>{children}</main>
+  return <main className='flex min-h-dvh flex-col max-w-4xl mx-auto'>{children}</main>
 }
