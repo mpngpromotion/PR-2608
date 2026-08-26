@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation'
 import classNames from 'classnames'
 import { commonTransition } from '@/theme/transition'
 
-export const Header = () => {
+export const Header = ({ className }: { className?: string }) => {
   const router = useRouter()
   return (
-    <div className='w-full h-fit flex flex-col justify-center items-center px-10'>
+    <div className={classNames('w-full h-fit flex flex-col justify-center items-center px-10', className)}>
       <img
         src='/img/icons/soran.png'
         className={classNames('w-20', commonTransition)}

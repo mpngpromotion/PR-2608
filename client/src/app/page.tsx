@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
+import { Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import classNames from 'classnames'
 import {
@@ -52,20 +53,32 @@ const SOCIAL_SITES = [
 ]
 
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
+  )
+}
+
+function HomeContent() {
   const router = useRouter()
   const { progress, isGrouped, showIntroHint, handleWheel, handleTouchMove, handleTouchEnd } = useGatherProgress()
   // 앨범/무드필름/갤러리/가사게임 아이콘 4개가 서로 겹치지 않게 한 번에 경로를 만든다.
   const [albumPath, moodFilmPath, galleryPath, lyricsPath] = useFloatingPaths(4)
 
   return (
-    <div
-      onWheel={handleWheel}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      style={{ '--album-size': 'min(50vw, 28rem)' } as React.CSSProperties}
-      className='relative h-dvh w-full touch-none'
-    >
-      <IntroHint show={showIntroHint} />
+    <>
+      {/* mood-film 페이지의 예시 영상을 미리 받아둔다 — 나중에 그 페이지에서 <video src>가
+          같은 URL로 요청하면 브라우저 캐시에서 바로 나와서 로딩이 훨씬 빠르다. */}
+      <link rel='preload' as='video' href='/video/test-video.mp4' />
+      <div
+        onWheel={handleWheel}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ '--album-size': 'min(50vw, 28rem)' } as React.CSSProperties}
+        className='relative h-dvh w-full touch-none'
+      >
+        <IntroHint show={showIntroHint} />
       <GatherLetters progress={progress} isGrouped={isGrouped} />
       <div
         id='gathered-links'
@@ -211,6 +224,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

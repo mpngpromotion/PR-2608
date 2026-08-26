@@ -11,10 +11,11 @@ export interface GalleryPhoto {
 
 // TODO(user): 실제 싱글/EP 사진 asset과 공개 일정으로 교체 (9/9~14 업데이트)
 export const GALLERY_PHOTOS: GalleryPhoto[] = [
-  { id: 'g1', src: '/img/sorantest.jpg', openDate: '2026-09-09', initiallyBlurred: false },
-  { id: 'g2', src: '/img/sorantest.jpg', openDate: '2026-09-10', initiallyBlurred: true },
-  { id: 'g3', src: '/img/sorantest.jpg', openDate: '2026-09-11', initiallyBlurred: true },
-  { id: 'g4', src: '/img/sorantest.jpg', openDate: '2026-09-14', initiallyBlurred: true },
+  { id: 'g1', src: '/img/sorantest.jpg', openDate: '2026-08-27', initiallyBlurred: false },
+  { id: 'g2', src: '/img/sorantest.jpg', openDate: '2026-08-27', initiallyBlurred: true },
+  { id: 'g3', src: '/img/sorantest.jpg', openDate: '2026-08-27', initiallyBlurred: true },
+  { id: 'g4', src: '/img/sorantest.jpg', openDate: '2026-08-27', initiallyBlurred: true },
+  { id: 'g5', src: '/img/sorantest.jpg', openDate: '2026-08-27', initiallyBlurred: true },
 ]
 
 export function isGalleryPhotoVisible(photo: GalleryPhoto, now: number): boolean {

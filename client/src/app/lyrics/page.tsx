@@ -1,4 +1,15 @@
+import { Header } from '@/components'
+
 // 직접 진입/새로고침 시 렌더되는 단독 풀페이지 (인트로 없이).
 export default function LyricsPage() {
-  return <div className='mx-auto w-full max-w-lg px-6 py-16'>가사 게임</div>
+  return (
+    <div className='w-full h-dvh flex flex-col justify-start items-center gap-8 py-10 text-center'>
+      <Header />
+      <div className=' w-full h-full flex flex-col justify-center items-center gap-8 px-10'>
+        <span>
+          <p>가사 게임 오픈 예정입니다.</p>
+        </span>
+      </div>
+    </div>
+  )
 }
