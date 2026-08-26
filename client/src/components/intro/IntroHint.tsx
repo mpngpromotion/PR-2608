@@ -1,6 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'motion/react'
+import PinchIcon from '@/svg/pinch.svg'
 
 // 인트로 진입 시 잠깐 보여주는 조작 안내 툴팁.
 export function IntroHint({ show }: { show: boolean }) {
@@ -13,9 +14,9 @@ export function IntroHint({ show }: { show: boolean }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className='pointer-events-none absolute top-[8%] left-1/2 z-20 -translate-x-1/2 text-nowrap rounded-full bg-black/70 px-4 py-2 text-xs text-white'
+          className='pointer-events-none absolute top-1/2 -translate-y-1/2 left-1/2 z-20 -translate-x-1/2'
         >
-          스크롤하거나 두 손가락으로 확대/축소해보세요
+          <PinchIcon className='w-18 h-18 text-black/50 animate-pinchMotion' />
         </motion.div>
       )}
     </AnimatePresence>

@@ -82,7 +82,7 @@ export function GatherLetters({ progress, isGrouped }: { progress: number; isGro
             }}
             animate={{
               opacity: 1,
-              boxShadow: isGrouped ? '2px 2px 8px rgba(0,0,0,0.1)' : '2px 2px 8px rgba(0,0,0,0.2)',
+              boxShadow: isGrouped ? '2px 2px 6px rgba(0,0,0,0.05)' : '2px 2px 6px rgba(0,0,0,0.2)',
             }}
             style={{ pointerEvents: 'none' }}
             src={`/img/type/${letter}.png`}

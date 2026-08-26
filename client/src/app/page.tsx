@@ -18,7 +18,7 @@ import Link from 'next/link'
 // true로 켜두면 아래 RELEASE_DATES 대신 TEST_DATE 하나가 모든 날짜 게이팅에 일괄 적용된다.
 // 실제 배포 전엔 반드시 false로 되돌릴 것.
 const IS_TEST = true
-const TEST_DATE = '2026-08-26 01:12:00'
+const TEST_DATE = '2026-08-26 13:10:00'
 
 // 페이지 안에서 날짜 기준으로 텍스트/링크가 바뀌는 지점들을 한곳에서 관리.
 const RELEASE_DATES = {
