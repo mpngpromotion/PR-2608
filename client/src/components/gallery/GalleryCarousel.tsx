@@ -23,10 +23,12 @@ export function GalleryCarousel({ className }: { className?: string }) {
   const swiperRef = useRef<SwiperInstance | null>(null)
   const [isBeginning, setIsBeginning] = useState(true)
   const [isEnd, setIsEnd] = useState(photos.length <= 1)
+  const [activeIndex, setActiveIndex] = useState(0)
 
   const syncEdges = (swiper: SwiperInstance) => {
     setIsBeginning(swiper.isBeginning)
     setIsEnd(swiper.isEnd)
+    setActiveIndex(swiper.activeIndex)
   }
 
   // 공개된 사진이 아직 없으면(모든 openDate가 미래) Swiper를 슬라이드 0개로 띄우지 않는다.
@@ -86,6 +88,10 @@ export function GalleryCarousel({ className }: { className?: string }) {
         disabled={isEnd}
         onClick={() => swiperRef.current?.slideNext()}
       />
+
+      <span className='absolute -bottom-6 left-1/2 z-10 -translate-x-1/2 text-xs text-zinc-500 tabular-nums'>
+        {activeIndex + 1} / {photos.length}
+      </span>
     </div>
   )
 }

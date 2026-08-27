@@ -1,7 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import classNames from 'classnames'
 import {
@@ -13,6 +12,7 @@ import {
   MotionDiv,
   FloatingIcon,
   useFloatingPaths,
+  QUADRANTS,
   ActionByDate,
   Crossfade,
 } from '@/components'
@@ -53,18 +53,17 @@ const SOCIAL_SITES = [
 ]
 
 export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <HomeContent />
-    </Suspense>
-  )
-}
-
-function HomeContent() {
   const router = useRouter()
   const { progress, isGrouped, showIntroHint, handleWheel, handleTouchMove, handleTouchEnd } = useGatherProgress()
-  // 앨범/무드필름/갤러리/가사게임 아이콘 4개가 서로 겹치지 않게 한 번에 경로를 만든다.
-  const [albumPath, moodFilmPath, galleryPath, lyricsPath] = useFloatingPaths(4)
+  // 앨범/무드필름/갤러리/가사게임 아이콘 4개가 화면 전체에 골고루 퍼져 보이도록, 실제 배치와
+  // 맞는 사분면(좌상/우상/좌하/우하)에 각자 가둬서 그 안에서만 떠다니게 한다. sizePx는 아래
+  // MotionDiv에 준 실제 너비(w-24=96px, w-14=56px)와 맞춰야 화면 밖으로 안 나간다.
+  const [albumPath, moodFilmPath, galleryPath, lyricsPath] = useFloatingPaths([
+    { sizePx: 96, region: QUADRANTS.topLeft },
+    { sizePx: 96, region: QUADRANTS.topRight },
+    { sizePx: 56, region: QUADRANTS.bottomLeft },
+    { sizePx: 96, region: QUADRANTS.bottomRight },
+  ])
 
   return (
     <>
@@ -79,151 +78,155 @@ function HomeContent() {
         className='relative h-dvh w-full touch-none'
       >
         <IntroHint show={showIntroHint} />
-      <GatherLetters progress={progress} isGrouped={isGrouped} />
-      <div
-        id='gathered-links'
-        className='pointer-events-none absolute inset-0 z-0 grid grid-cols-1 grid-rows-[1fr_var(--album-size)_1fr] justify-items-center '
-      >
-        <div id='top-space' className='w-full h-full min-h-0 flex flex-col gap-2 '>
-          <div className='w-full h-full flex flex-row justify-between '>
-            <div className={classNames('', 'flex-3 h-[80%] self-start', 'flex items-center justify-center')}>
-              {/* 앨범 소개 */}
-              <FloatingIcon path={albumPath} duration={38}>
-                <MotionDiv id='icon-album' clickable className={classNames('w-24')} isDone={isGrouped}>
-                  <ActionByDate date={releaseDate('album')} tempDuration={2000} onClick={() => router.push('/album')}>
-                    {({ isRevealing, onClick }) => (
-                      <button onClick={onClick} className='cursor-pointer'>
-                        <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
-                          {isRevealing ? (
-                            <span className='text-center'>2026.09.03 OPEN</span>
-                          ) : (
-                            <img src='/img/icons/soran.png' alt='앨범' />
-                          )}
-                        </Crossfade>
-                      </button>
-                    )}
-                  </ActionByDate>
-                </MotionDiv>
-              </FloatingIcon>
-            </div>
-            <div className='flex-1 ' />
-            <div className={classNames('', 'flex-2 h-[50%] self-end', 'flex items-center justify-center')}>
-              {/* 무드필름 만들기 */}
-              <FloatingIcon path={moodFilmPath} duration={44} delay={2}>
-                <MotionDiv id='icon-moodFilm' clickable className={classNames('w-24')} isDone={isGrouped}>
-                  <ActionByDate
-                    date={releaseDate('moodFilm')}
-                    tempDuration={2000}
-                    onClick={() => router.push('/mood-film')}
-                  >
-                    {({ isRevealing, onClick }) => (
-                      <button onClick={onClick} className='cursor-pointer'>
-                        <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
-                          {isRevealing ? (
-                            <span className='text-center'>2026.09.03 OPEN</span>
-                          ) : (
-                            <img src='/img/icons/moodflim.png' alt='무드필름' />
-                          )}
-                        </Crossfade>
-                      </button>
-                    )}
-                  </ActionByDate>
-                </MotionDiv>
-              </FloatingIcon>
-            </div>
-          </div>
-          <div className='w-full h-fit flex items-center justify-center pb-3 '>
-            <MotionDiv className={classNames('text-lg text-nowrap text-center')} isDone={isGrouped}>
-              <DisplayByDate date={releaseDate('epAnnounce')}>
-                {(isAfter) => <span>{isAfter ? ' SORAN EP [Layer]' : 'ㅤ'}</span>}
-              </DisplayByDate>
-            </MotionDiv>
-          </div>
-        </div>
-
-        <GatheredBackground isGrouped={isGrouped} />
-
-        <div id='bottom-space' className='w-full h-full min-h-0 flex flex-col  gap-2'>
-          <div className='w-full h-fit flex items-center justify-center pt-3'>
-            <MotionDiv className={classNames('text-lg text-nowrap text-center')} isDone={isGrouped}>
-              <DisplayByDate date={releaseDate('releaseDate')}>
-                {(isAfter) => <span>{isAfter ? '2026.09.18' : 'ㅤ'}</span>}
-              </DisplayByDate>
-            </MotionDiv>
-          </div>
-          <div className='w-fulll h-full  flex flex-row justify-between gap-4'>
-            <div className='flex-1 h-full flex flex-col justify-start items-center '>
-              {/* 갤러리 */}
-              <FloatingIcon path={galleryPath} duration={35} delay={4}>
-                <MotionDiv id='icon-gallery' clickable className={classNames('w-14')} isDone={isGrouped}>
-                  <ActionByDate
-                    date={releaseDate('gallery')}
-                    tempDuration={2000}
-                    onClick={() => router.push('/gallery')}
-                  >
-                    {({ isRevealing, onClick }) => (
-                      <button onClick={onClick} className='cursor-pointer'>
-                        <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
-                          {isRevealing ? (
-                            <span className='text-center'>2026.09.08 OPEN</span>
-                          ) : (
-                            <img src='/img/icons/gallery.png' alt='갤러리' />
-                          )}
-                        </Crossfade>
-                      </button>
-                    )}
-                  </ActionByDate>
-                </MotionDiv>
-              </FloatingIcon>
-            </div>
-
-            {/* 소셜 미디어 링크 */}
-            <div className='h-full flex-1 flex flex-col shrink-0 justify-end items-center   '>
-              <div className='w-fit h-fit flex flex-row items-center  justify-center gap-4'>
-                {SOCIAL_SITES.map((site) => (
-                  <MotionDiv
-                    key={site.name}
-                    clickable
-                    className={classNames('w-10', site.name === 'x' ? '-ml-1' : '')}
-                    isDone={isGrouped}
-                  >
-                    <Link href={site.link} target='_blank' rel='noopener noreferrer'>
-                      <img
-                        src={`/img/icons/${site.name}.png`}
-                        alt={site.name}
-                        className='w-full h-full object-contain'
-                      />
-                    </Link>
+        <GatherLetters progress={progress} isGrouped={isGrouped} />
+        <div
+          id='gathered-links'
+          className='pointer-events-none absolute inset-0 z-0 grid grid-cols-1 grid-rows-[1fr_var(--album-size)_1fr] justify-items-center '
+        >
+          <div id='top-space' className='w-full h-full min-h-0 flex flex-col gap-2 '>
+            <div className='w-full h-full flex flex-row justify-between '>
+              <div className={classNames('', 'flex-3 h-[80%] self-start', 'flex items-center justify-center')}>
+                {/* 앨범 소개 */}
+                <FloatingIcon path={albumPath} duration={38}>
+                  <MotionDiv id='icon-album' clickable className={classNames('w-24')} isDone={isGrouped}>
+                    <ActionByDate date={releaseDate('album')} tempDuration={2000} onClick={() => router.push('/album')}>
+                      {({ isRevealing, onClick }) => (
+                        <button onClick={onClick} className='cursor-pointer'>
+                          <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
+                            {isRevealing ? (
+                              <span className='text-center'>2026.09.03 OPEN</span>
+                            ) : (
+                              <img src='/img/icons/soran.png' alt='앨범' />
+                            )}
+                          </Crossfade>
+                        </button>
+                      )}
+                    </ActionByDate>
                   </MotionDiv>
-                ))}
+                </FloatingIcon>
               </div>
-              <div className='h-[35%]' />
+              <div className='flex-1 ' />
+              <div className={classNames('', 'flex-2 h-[50%] self-end', 'flex items-center justify-center')}>
+                {/* 무드필름 만들기 */}
+                <FloatingIcon path={moodFilmPath} duration={44}>
+                  <MotionDiv id='icon-moodFilm' clickable className={classNames('w-24')} isDone={isGrouped}>
+                    <ActionByDate
+                      date={releaseDate('moodFilm')}
+                      tempDuration={2000}
+                      onClick={() => router.push('/mood-film')}
+                    >
+                      {({ isRevealing, onClick }) => (
+                        <button onClick={onClick} className='cursor-pointer'>
+                          <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
+                            {isRevealing ? (
+                              <span className='text-center'>2026.09.03 OPEN</span>
+                            ) : (
+                              <img src='/img/icons/moodflim.png' alt='무드필름' />
+                            )}
+                          </Crossfade>
+                        </button>
+                      )}
+                    </ActionByDate>
+                  </MotionDiv>
+                </FloatingIcon>
+              </div>
             </div>
+            <div className='w-full h-fit flex items-center justify-center pb-3 '>
+              <MotionDiv className={classNames('text-base text-nowrap text-center')} isDone={isGrouped}>
+                <DisplayByDate date={releaseDate('epAnnounce')}>
+                  {(isAfter) => <span>{isAfter ? ' SORAN EP [Layer]' : 'ㅤ'}</span>}
+                </DisplayByDate>
+              </MotionDiv>
+            </div>
+          </div>
 
-            <div className='h-full flex-1 flex flex-col justify-end items-center '>
-              {/* 가사게임 */}
-              <FloatingIcon path={lyricsPath} duration={41} delay={6}>
-                <MotionDiv id='icon-lyrics' clickable className={classNames('w-24')} isDone={isGrouped}>
-                  <ActionByDate date={releaseDate('lyrics')} tempDuration={2000} onClick={() => router.push('/lyrics')}>
-                    {({ isRevealing, onClick }) => (
-                      <button onClick={onClick} className='cursor-pointer'>
-                        <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
-                          {isRevealing ? (
-                            <span className='text-center'>2026.09.15 OPEN</span>
-                          ) : (
-                            <img src='/img/icons/lyric.png' alt='가사 게임' />
-                          )}
-                        </Crossfade>
-                      </button>
-                    )}
-                  </ActionByDate>
-                </MotionDiv>
-              </FloatingIcon>
-              <div className='h-[12%]' />
+          <GatheredBackground isGrouped={isGrouped} />
+
+          <div id='bottom-space' className='w-full h-full min-h-0 flex flex-col  gap-2'>
+            <div className='w-full h-fit flex items-center justify-center pt-3'>
+              <MotionDiv className={classNames('text-base text-nowrap text-center')} isDone={isGrouped}>
+                <DisplayByDate date={releaseDate('releaseDate')}>
+                  {(isAfter) => <span>{isAfter ? '2026.09.18' : 'ㅤ'}</span>}
+                </DisplayByDate>
+              </MotionDiv>
+            </div>
+            <div className='w-fulll h-full  flex flex-row justify-between gap-4'>
+              <div className='flex-1 h-full flex flex-col justify-start items-center '>
+                {/* 갤러리 */}
+                <FloatingIcon path={galleryPath} duration={35}>
+                  <MotionDiv id='icon-gallery' clickable className={classNames('w-14')} isDone={isGrouped}>
+                    <ActionByDate
+                      date={releaseDate('gallery')}
+                      tempDuration={2000}
+                      onClick={() => router.push('/gallery')}
+                    >
+                      {({ isRevealing, onClick }) => (
+                        <button onClick={onClick} className='cursor-pointer'>
+                          <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
+                            {isRevealing ? (
+                              <span className='text-center'>2026.09.08 OPEN</span>
+                            ) : (
+                              <img src='/img/icons/gallery.png' alt='갤러리' />
+                            )}
+                          </Crossfade>
+                        </button>
+                      )}
+                    </ActionByDate>
+                  </MotionDiv>
+                </FloatingIcon>
+              </div>
+
+              {/* 소셜 미디어 링크 */}
+              <div className='h-full flex-1 flex flex-col shrink-0 justify-end items-center   '>
+                <div className='w-fit h-fit flex flex-row items-center  justify-center gap-4'>
+                  {SOCIAL_SITES.map((site) => (
+                    <MotionDiv
+                      key={site.name}
+                      clickable
+                      className={classNames('w-[32px] h-[32px]', site.name === 'x' ? '-ml-1' : '')}
+                      isDone={isGrouped}
+                    >
+                      <Link href={site.link} target='_blank' rel='noopener noreferrer'>
+                        <img
+                          src={`/img/icons/${site.name}.png`}
+                          alt={site.name}
+                          className='w-full h-full object-contain'
+                        />
+                      </Link>
+                    </MotionDiv>
+                  ))}
+                </div>
+                <div className='h-[35%]' />
+              </div>
+
+              <div className='h-full flex-1 flex flex-col justify-end items-center '>
+                {/* 가사게임 */}
+                <FloatingIcon path={lyricsPath} duration={41}>
+                  <MotionDiv id='icon-lyrics' clickable className={classNames('w-24')} isDone={isGrouped}>
+                    <ActionByDate
+                      date={releaseDate('lyrics')}
+                      tempDuration={2000}
+                      onClick={() => router.push('/lyrics')}
+                    >
+                      {({ isRevealing, onClick }) => (
+                        <button onClick={onClick} className='cursor-pointer'>
+                          <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
+                            {isRevealing ? (
+                              <span className='text-center'>2026.09.15 OPEN</span>
+                            ) : (
+                              <img src='/img/icons/lyric.png' alt='가사 게임' />
+                            )}
+                          </Crossfade>
+                        </button>
+                      )}
+                    </ActionByDate>
+                  </MotionDiv>
+                </FloatingIcon>
+                <div className='h-[12%]' />
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
     </>
   )

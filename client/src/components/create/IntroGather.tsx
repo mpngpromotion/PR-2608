@@ -140,7 +140,14 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
           )}
         >
           이제, 여러분의 Layer를 쌓아보세요
-          <span className='block text-sm pt-2 animate-pulse'>화면을 터치하면 시작합니다</span>
+          <span
+            className={classNames(
+              'block text-sm pt-2 transition-opacity',
+              started ? 'opacity-0' : 'opacity-100 animate-pulse',
+            )}
+          >
+            화면을 터치하거나 클릭하면 시작합니다
+          </span>
         </div>
       ) : (
         <motion.div

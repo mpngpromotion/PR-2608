@@ -16,7 +16,7 @@ export function IntroHint({ show }: { show: boolean }) {
           transition={{ duration: 0.3, ease: 'easeOut' }}
           className='pointer-events-none absolute top-1/2 -translate-y-1/2 left-1/2 z-20 -translate-x-1/2'
         >
-          <PinchIcon className='w-16 h-16 text-black/50 animate-pinchMotion' />
+          <PinchIcon className='w-12 h-12 text-black/20 animate-pinchMotion' />
         </motion.div>
       )}
     </AnimatePresence>

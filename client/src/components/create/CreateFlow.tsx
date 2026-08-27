@@ -19,9 +19,9 @@ import { commonTransition } from '@/theme/transition'
 // 화면 전환(URL과 동기화되는 큰 단계)은 예시 영상 재생 → 인트로 → 완료, 3개뿐이다.
 // 이름 입력/사진 선택/생성은 IntroGather 안에서 자체적으로 관리하는 하위 단계라 여기선 모른다
 // (뒤로가기는 watching/intro/done 단위로만 동작).
-const EXAMPLE_VIDEO_SRC = '/video/test-video.mp4'
+const EXAMPLE_VIDEO_SRC = '/video/moodfilm.mp4'
 type Step = 'watching' | 'intro' | 'done'
-type ShareStatus = 'idle' | 'video' | 'thumbnail'
+type ShareStatus = 'idle' | 'sharing'
 
 function isStep(value: string | null): value is Step {
   return value === 'watching' || value === 'intro' || value === 'done'
@@ -69,8 +69,8 @@ export function CreateFlow() {
 
   // SNS 공유 시 같이 실리는 문구. 링크를 넣어서 공유받은 사람도 직접 만들어볼 수 있게 한다.
   const buildShareText = () => {
-    const siteUrl = typeof window !== 'undefined' ? `${window.location.origin}/mood-film` : ''
-    return `${name || '무드필름'}의 Layer가 공유되었습니다.\n\nSORAN의 Layer 웹사이트에서 무드필름을 만들어보세요!\n${siteUrl}\n`
+    const siteUrl = typeof window !== 'undefined' ? `${window.location.origin}` : ''
+    return `${name || '무드필름'}의 Layer가 공유되었습니다.\n\nSORAN의 Layer 웹사이트에서 무드필름을 만들어보세요!\n\n${siteUrl}`
   }
 
   const handleShareVideo = async () => {
@@ -82,7 +82,7 @@ export function CreateFlow() {
       return
     }
 
-    setShareStatus('video')
+    setShareStatus('sharing')
     try {
       await navigator.share({ files: [file], text: buildShareText() })
     } catch (error) {
@@ -95,12 +95,13 @@ export function CreateFlow() {
     }
   }
 
-  // 카카오톡은 Web Share로 영상을 넘기면 원인 불명으로 조용히 실패한다(인스타그램은 정상 동작 확인됨).
-  // 이미지는 카카오톡에서도 정상 공유되는 걸 확인해서, 영상의 썸네일 이미지를 대신 공유한다.
+  // 카카오톡이 Web Share로 영상을 넘겼을 때 조용히 실패하던 시기에 만든 대안 — 지금은 카카오도
+  // 영상 공유가 정상 동작해서 버튼에 연결돼있진 않지만, 나중에 다시 문제가 생기면 이 함수로
+  // 교체해서 쓸 수 있도록 지우지 않고 남겨둔다.
   const handleShareThumbnail = async () => {
     if (!video?.thumbnailBlob || shareStatus !== 'idle') return
 
-    setShareStatus('thumbnail')
+    setShareStatus('sharing')
     try {
       const file = new File([video.thumbnailBlob], `${name || 'layer'}-thumbnail.jpg`, {
         type: video.thumbnailBlob.type,
@@ -139,7 +140,7 @@ export function CreateFlow() {
             <VideoPlayer
               src={EXAMPLE_VIDEO_SRC}
               onEnded={() => goToStep('intro')}
-              className='h-full w-auto max-w-full'
+              className='h-full w-auto max-w-full shadow-lg'
             />
           </div>
         </motion.div>
@@ -204,19 +205,19 @@ export function CreateFlow() {
                       className='disabled:opacity-40'
                     >
                       <InstagramIcon
-                        className={classNames('w-[32px] h-[32px]', shareStatus === 'video' ? 'animate-pulse' : '')}
+                        className={classNames('w-[32px] h-[32px]', shareStatus === 'sharing' ? 'animate-pulse' : '')}
                       />
                     </button>
                   )}
                   {canShare && (
                     <button
                       type='button'
-                      onClick={handleShareThumbnail}
-                      disabled={shareStatus !== 'idle' || !video.thumbnailBlob}
+                      onClick={handleShareVideo}
+                      disabled={shareStatus !== 'idle'}
                       className='disabled:opacity-40'
                     >
                       <KakaoTalkIcon
-                        className={classNames('w-[32px] h-[32px]', shareStatus === 'thumbnail' ? 'animate-pulse' : '')}
+                        className={classNames('w-[32px] h-[32px]', shareStatus === 'sharing' ? 'animate-pulse' : '')}
                       />
                     </button>
                   )}
