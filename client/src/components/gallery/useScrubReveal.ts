@@ -16,18 +16,15 @@ interface UseScrubRevealOptions {
 export function useScrubReveal({ brushSize = 36 }: UseScrubRevealOptions = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const maskUrlRef = useRef<string | null>(null)
   const framePendingRef = useRef(false)
   const [maskUrl, setMaskUrl] = useState<string | null>(null)
 
+  // toBlob()+Object URL은 비동기라, "새 URL을 만들고 헌 URL을 지운다" 사이에 브라우저가 새
+  // blob URL을 아직 디코드하지 못한 순간이 생긴다. 그 틈에 mask-image가 잠깐 유효한 소스가
+  // 없는 상태가 되면서 마스크가 통째로 사라져(=블러가 다시 꽉 차 보여) 깜빡였다. toDataURL()은
+  // 동기라 이 틈 자체가 없고, 지워줄 URL도 없어서 revoke 타이밍 문제도 같이 사라진다.
   const publishMask = (canvas: HTMLCanvasElement) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      if (maskUrlRef.current) URL.revokeObjectURL(maskUrlRef.current)
-      maskUrlRef.current = url
-      setMaskUrl(url)
-    }, 'image/png')
+    setMaskUrl(canvas.toDataURL('image/png'))
   }
 
   useEffect(() => {
@@ -49,11 +46,6 @@ export function useScrubReveal({ brushSize = 36 }: UseScrubRevealOptions = {}) {
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, width, height)
     publishMask(canvas)
-
-    return () => {
-      if (maskUrlRef.current) URL.revokeObjectURL(maskUrlRef.current)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const erase = (clientX: number, clientY: number) => {
