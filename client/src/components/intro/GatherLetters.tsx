@@ -66,7 +66,11 @@ export function GatherLetters({ progress, isGrouped }: { progress: number; isGro
         <motion.div
           key={letter}
           className='absolute z-10 flex aspect-square h-auto w-(--album-size) items-center justify-center mix-blend-multiply'
-          style={{ x: '-50%', y: '-50%' }}
+          // 다 모이면 이 정사각형이 앨범 커버 자리와 똑같은 크기·위치에 얹힌다. 안의 img에만
+          // pointer-events: none을 줘봤자 이 div 자체(z-10, 기본 auto)가 같은 자리를 덮고
+          // 있어서 클릭을 계속 가로챘다 — 그 자리에 떠 있는 아이콘이 클릭이 안 먹던 원인.
+          // 글자는 순수 장식이라 이 래퍼도 클릭을 통과시켜야 한다.
+          style={{ x: '-50%', y: '-50%', pointerEvents: 'none' }}
           initial={false}
           animate={{
             left: lerpOffsetToPercent(scatter.x, grouped.x, progress),

@@ -109,6 +109,32 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// 이 시간(ms) 동안 화면을 정지해있게 하되, 이 간격(ms)마다 같은 장면을 다시 그려서 캔버스를
+// 계속 "건드려"준다. 일부 브라우저의 canvas.captureStream()은 캔버스가 실제로 다시 그려질
+// 때만 스트림에 새 프레임을 흘려보내는 구현이라, 한 번도 안 건드리고 오래(특히 finalHoldMs처럼
+// 긴 정지 구간) 놔두면 그 구간의 프레임/타임스탬프가 비거나 이상해질 수 있다 — 애니메이션 없이
+// 사진이 바로 나타나는 방식으로 바꾸면서 정지 구간이 훨씬 길어진 뒤로 카카오톡 영상 공유가
+// 다시 실패하기 시작해서 넣었다.
+const REDRAW_INTERVAL_MS = 150
+
+async function holdFrame(
+  ctx: CanvasRenderingContext2D,
+  frameWidth: number,
+  frameHeight: number,
+  cards: CardData[],
+  cardSize: number,
+  visibleCount: number,
+  durationMs: number,
+) {
+  let remaining = durationMs
+  while (remaining > 0) {
+    const step = Math.min(REDRAW_INTERVAL_MS, remaining)
+    await wait(step)
+    remaining -= step
+    drawScene(ctx, frameWidth, frameHeight, cards, cardSize, visibleCount)
+  }
+}
+
 // 사진이 한 장씩 날아오지 않고 가운데에 바로 나타나면서, 여러 장 겹친 종이 더미처럼 쌓이는
 // 모션을 캔버스에 그리면서 MediaRecorder로 캡처해 영상 Blob을 만든다.
 export async function generateVideoFromFrames({
@@ -148,7 +174,7 @@ export async function generateVideoFromFrames({
   // 첫 프레임: 아직 사진이 하나도 없는 빈 화면으로 시작한다.
   drawScene(ctx, VIDEO_FORMAT.width, VIDEO_FORMAT.height, cards, cardSize, 0)
   recorder.start()
-  await wait(VIDEO_FORMAT.initialHoldMs)
+  await holdFrame(ctx, VIDEO_FORMAT.width, VIDEO_FORMAT.height, cards, cardSize, 0, VIDEO_FORMAT.initialHoldMs)
 
   let thumbnailBlob: Blob | null = null
   for (const [index] of cards.entries()) {
@@ -160,7 +186,15 @@ export async function generateVideoFromFrames({
     if (isLast) thumbnailBlob = await captureThumbnail(canvas)
 
     onProgress?.(visibleCount / cards.length)
-    await wait(isLast ? VIDEO_FORMAT.finalHoldMs : msPerPhoto)
+    await holdFrame(
+      ctx,
+      VIDEO_FORMAT.width,
+      VIDEO_FORMAT.height,
+      cards,
+      cardSize,
+      visibleCount,
+      isLast ? VIDEO_FORMAT.finalHoldMs : msPerPhoto,
+    )
   }
   recorder.stop()
 
