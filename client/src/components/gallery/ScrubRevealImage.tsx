@@ -11,14 +11,17 @@ interface ScrubRevealImageProps {
   blurred: boolean
   className?: string
   style?: CSSProperties
-  onScrubStart?: () => void
+  onSufficientlyRevealed?: () => void
 }
 
 const BLUR_PX = 8
-// filter: blur() 가장자리 페이드를 보이는 영역 밖으로 밀어내려고, 흐린 이미지 전체를 살짝
-// 확대해서 그린다. transform은 filter/mask가 적용된 결과물을 그대로 확대만 하는 거라(마스크가
-// 자기 박스 기준 100%로 맞춰져 있으므로) 마스크와의 정렬은 흐트러지지 않는다.
-const BLUR_SCALE = 1.0
+// filter: blur()는 유한한 영역 안의 주변 픽셀만 섞어서 계산하는 연산이라, 박스 가장자리에 가까운
+// 픽셀일수록 섞을 수 있는 주변 데이터가 적어서 안쪽보다 덜 뭉개진 것처럼 보인다(나뭇잎처럼 고주파
+// 디테일이 많은 사진일수록 특히 두드러진다). 흐린 이미지 전체를 살짝 확대해서 그리면, 실제로
+// 보이는 가장자리는 원본 기준으로 더 안쪽 지점이 되어 그만큼 더 많은 주변 데이터를 섞을 여유가
+// 생긴다. transform은 filter/mask가 적용된 결과물을 그대로 확대만 하는 거라(마스크가 자기 박스
+// 기준 100%로 맞춰져 있으므로) 마스크와의 정렬은 흐트러지지 않는다.
+const BLUR_SCALE = 1.2
 
 // 지우개 모양 SVG 커서. 터치 기기엔 어차피 커서가 없으니 마우스로 문지를 때만 보인다.
 // 핫스팟(24 28)을 지우개 밑면 중앙에 맞춰서, 실제로 지워지는 지점과 커서 위치가 일치하게 했다.
@@ -33,8 +36,8 @@ const ERASER_CURSOR =
  * 원본 위에 CSS blur가 걸린 동일 이미지를 겹쳐두고, 사용자가 문지른(drag) 자리만큼 그
  * 흐린 레이어에 구멍을 뚫어 아래 선명한 원본을 드러낸다. 실제 지우기 동작은 useScrubReveal 참고.
  */
-export function ScrubRevealImage({ src, alt, blurred, className, style, onScrubStart }: ScrubRevealImageProps) {
-  const { containerRef, canvasRef, bind, maskUrl, hitPadding } = useScrubReveal({ onScrubStart })
+export function ScrubRevealImage({ src, alt, blurred, className, style, onSufficientlyRevealed }: ScrubRevealImageProps) {
+  const { containerRef, canvasRef, bind, maskUrl, hitPadding } = useScrubReveal({ onSufficientlyRevealed })
 
   return (
     <div

@@ -12,9 +12,11 @@ interface UseScrubRevealOptions {
   // 남는 여백은 그만큼 줄어든다. 마스크/블러 표시 크기 자체는 바뀌지 않는다(캔버스 해상도는
   // 그대로 사진 크기 기준).
   hitPadding?: number
-  // 사용자가 실제로 문지르기 시작한 시점(드래그 첫 프레임)에 한 번 호출된다. 안내 문구를
-  // 감춘다든지 하는, 문지르기 "시작" 자체가 필요한 곳에서 쓴다.
-  onScrubStart?: () => void
+  // 마스크에서 이 비율(0~1) 이상이 지워지면 onSufficientlyRevealed를 한 번만 호출한다.
+  revealedThreshold?: number
+  // "이미 어느 정도 봤다"고 볼 수 있는 시점(위 threshold를 넘는 순간)에 딱 한 번 호출된다.
+  // 예: 이미 충분히 드러난 사진에는 문지르라는 안내를 더 이상 띄우지 않는 용도.
+  onSufficientlyRevealed?: () => void
 }
 
 /**
@@ -23,11 +25,17 @@ interface UseScrubRevealOptions {
  * 자리만큼 캔버스에 destination-out으로 구멍을 뚫고, 그 결과를 mask-image로 내보내면
  * 흐린 레이어의 해당 부분만 사라지면서 아래 선명한 원본이 드러난다.
  */
-export function useScrubReveal({ brushSize = 36, hitPadding = 20, onScrubStart }: UseScrubRevealOptions = {}) {
+export function useScrubReveal({
+  brushSize = 36,
+  hitPadding = 20,
+  revealedThreshold = 0.1,
+  onSufficientlyRevealed,
+}: UseScrubRevealOptions = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const framePendingRef = useRef(false)
   const lastPointRef = useRef<{ x: number; y: number } | null>(null)
+  const revealedNotifiedRef = useRef(false)
   const [maskUrl, setMaskUrl] = useState<string | null>(null)
 
   // toBlob()+Object URL은 비동기라, "새 URL을 만들고 헌 URL을 지운다" 사이에 브라우저가 새
@@ -36,6 +44,32 @@ export function useScrubReveal({ brushSize = 36, hitPadding = 20, onScrubStart }
   // 동기라 이 틈 자체가 없고, 지워줄 URL도 없어서 revoke 타이밍 문제도 같이 사라진다.
   const publishMask = (canvas: HTMLCanvasElement) => {
     setMaskUrl(canvas.toDataURL('image/png'))
+    checkRevealedThreshold(canvas)
+  }
+
+  // 마스크의 알파 채널을 성기게 샘플링해서 "지워진 비율"을 대략 구한다. threshold를 한 번
+  // 넘고 나면 다시는 검사하지 않으므로(revealedNotifiedRef), 매 프레임 비용 걱정 없이 정확한
+  // getImageData를 써도 된다 — 드래그 도중 최대 한 번만 발생하는 비용이다.
+  const checkRevealedThreshold = (canvas: HTMLCanvasElement) => {
+    if (!onSufficientlyRevealed || revealedNotifiedRef.current) return
+    const ctx = canvas.getContext('2d')
+    const { width, height } = canvas
+    if (!ctx || width === 0 || height === 0) return
+
+    const STRIDE = 4
+    const data = ctx.getImageData(0, 0, width, height).data
+    let sampled = 0
+    let erased = 0
+    for (let y = 0; y < height; y += STRIDE) {
+      for (let x = 0; x < width; x += STRIDE) {
+        sampled++
+        if (data[(y * width + x) * 4 + 3] < 128) erased++
+      }
+    }
+    if (sampled > 0 && erased / sampled >= revealedThreshold) {
+      revealedNotifiedRef.current = true
+      onSufficientlyRevealed()
+    }
   }
 
   useEffect(() => {
@@ -60,7 +94,11 @@ export function useScrubReveal({ brushSize = 36, hitPadding = 20, onScrubStart }
     // 항상 "그대로 보임"이 되므로, 브라우저가 둘 중 어느 쪽으로 해석하든 안전하다.
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, width, height)
-    publishMask(canvas)
+    // 방금 새하얗게 채운 캔버스는 지워진 비율이 항상 0이라 revealedThreshold를 절대 넘을 수
+    // 없으므로, checkRevealedThreshold까지 도는 publishMask 대신 마스크만 바로 내보낸다
+    // (안 그러면 마운트 이펙트가 checkRevealedThreshold가 참조하는 props에 의존하게 돼서
+    // exhaustive-deps가 걸린다).
+    setMaskUrl(canvas.toDataURL('image/png'))
   }, [])
 
   // offsetX/offsetY는 이벤트 target(캔버스)의 로컬 padding box 기준 좌표라, 조상에 걸린
@@ -113,7 +151,6 @@ export function useScrubReveal({ brushSize = 36, hitPadding = 20, onScrubStart }
       lastPointRef.current = null
       return
     }
-    if (first) onScrubStart?.()
     // bind()가 React 엘리먼트에 스프레드되므로 이 event는 리액트 SyntheticEvent다. React의
     // 합성 이벤트는 offsetX/offsetY를 정규화 대상에서 빼놓고 아예 프록시하지 않아서(항상
     // undefined) event.offsetX로 바로 읽으면 안 되고, 감싸인 진짜 네이티브 이벤트

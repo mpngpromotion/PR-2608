@@ -6,14 +6,14 @@ import { ScrubRevealImage } from './ScrubRevealImage'
 interface GalleryItemProps {
   photo: GalleryPhoto
   index: number
-  onScrubStart?: () => void
+  onSufficientlyRevealed?: () => void
 }
 
 const ROTATE_DEG = 2
 // 스와이프 히트 영역(Swiper/SwiperSlide)은 부모에 꽉 채우고, 카드 자체 크기만 여기서 조절한다.
 const CARD_WIDTH = '75%'
 
-export function GalleryItem({ photo, index, onScrubStart }: GalleryItemProps) {
+export function GalleryItem({ photo, index, onSufficientlyRevealed }: GalleryItemProps) {
   const polaroid = '/img/polaroid.png'
   const rotateDeg = index % 2 === 0 ? -ROTATE_DEG : ROTATE_DEG
 
@@ -32,7 +32,7 @@ export function GalleryItem({ photo, index, onScrubStart }: GalleryItemProps) {
         src={photo.src ? photo.src : './img/dummy.jpg'}
         alt={photo.src ? 'Gallery photo' : 'Dummy image'}
         blurred={photo.initiallyBlurred}
-        onScrubStart={onScrubStart}
+        onSufficientlyRevealed={onSufficientlyRevealed}
         className='absolute transform -translate-x-1/2 aspect-720/953'
         style={{
           width: (724 / 919) * 100 + '%',
