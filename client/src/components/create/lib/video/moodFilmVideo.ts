@@ -10,24 +10,31 @@ import {
 } from 'mediabunny'
 
 const FPS = 30
+export const MOOD_FILM_FPS = FPS
 export const MOOD_FILM_DURATION = 633 / FPS
 const DURATION = MOOD_FILM_DURATION
 
 // Premiere XML에서 추출한 레이어별 등장 프레임/좌표/회전. 정확히 12장 기준.
+// rotation은 라디안이 아니라 실제 각도(360도 기준, degree) — drawFrame 안에서 라디안으로 변환해서 쓴다.
 const layers = [
   { start: 0, rotation: -5, x: 0, y: 0 },
-  { start: 40, rotation: -13, x: 0, y: -0.00347223 },
-  { start: 83, rotation: 3, x: 0.00363757, y: -0.00669641 },
-  { start: 166, rotation: -4, x: 0, y: 0 },
-  { start: 205, rotation: 8, x: 0, y: -0.0146329 },
-  { start: 248, rotation: -5, x: 0, y: -0.00372023 },
-  { start: 333, rotation: 2, x: 0, y: -0.00248016 },
-  { start: 370, rotation: 0, x: 0, y: -0.00322421 },
-  { start: 411, rotation: -5, x: 0, y: -0.00644841 },
-  { start: 496, rotation: -2, x: 0, y: -0.00297619 },
-  { start: 535, rotation: 2, x: 0, y: -0.00892857 },
-  { start: 580, rotation: 2, x: 0, y: -0.0111607 },
+  { start: 42, rotation: -13, x: 0, y: -0.00897223 },
+  { start: 86, rotation: 3, x: 0.00913757, y: -0.00519641 },
+  { start: 168, rotation: -4, x: 0, y: 0 },
+  { start: 207, rotation: 8, x: 0, y: -0.0146329 },
+  { start: 251, rotation: -5, x: 0, y: -0.00972023 },
+  { start: 335, rotation: 2, x: 0, y: -0.00248016 },
+  { start: 372, rotation: 0, x: 0, y: -0.00322421 },
+  { start: 413, rotation: -5, x: 0, y: -0.00644841 },
+  { start: 498, rotation: -2, x: 0, y: -0.00297619 },
+  { start: 538, rotation: 2, x: 0, y: -0.00892857 },
+  { start: 583, rotation: 2, x: 0, y: -0.0226607 },
 ].map((layer) => ({ ...layer, startSec: layer.start / FPS }))
+
+export type MoodFilmLayer = (typeof layers)[number]
+
+// 레이어 좌표 수동 튜닝용 디버그 페이지(mood-film/layer-test)에서 원본 값을 읽어가는 용도.
+export const MOOD_FILM_LAYERS: MoodFilmLayer[] = layers
 
 // 사진이 새로 나타나는 시점(12번)에만 화면이 바뀌고 그 사이엔 완전히 정지해있다. 매 프레임
 // (634개)을 다 인코딩하는 대신 바뀌는 시점마다 한 장만 그려서, 다음 시점까지의 구간 전체를
@@ -196,6 +203,7 @@ export function drawFrame(
   width: number,
   height: number,
   color: string,
+  customLayers: MoodFilmLayer[] = layers,
 ) {
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = '#ffffff'
@@ -205,7 +213,7 @@ export function drawFrame(
   const photoWidth = width * 0.644
   const photoHeight = (photoWidth * 4) / 3
 
-  layers.forEach((layer, index) => {
+  customLayers.forEach((layer, index) => {
     if (time < layer.startSec) return
 
     const image = images[index]
