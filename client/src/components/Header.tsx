@@ -9,14 +9,19 @@ export const Header = ({ className }: { className?: string }) => {
   const router = useRouter()
 
   const handleBack = () => {
-    router.back()
+    router.push('/')
   }
 
   return (
-    <div className={classNames('w-full relative h-fit flex flex-col justify-center items-center px-10', className)}>
+    <div
+      className={classNames(
+        'w-full relative h-fit flex flex-col justify-center items-center px-10 text-primary',
+        className,
+      )}
+    >
       <button
         onClick={handleBack}
-        className={classNames('absolute left-0 top-1/2 p-4 -translate-y-1/2 text-2xl text-primary', commonTransition)}
+        className={classNames('absolute left-0 top-1/2 p-4 -translate-y-1/2 text-2xl ', commonTransition)}
       >
         <IoIosArrowBack />
       </button>

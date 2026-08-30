@@ -11,6 +11,7 @@ interface ScrubRevealImageProps {
   blurred: boolean
   className?: string
   style?: CSSProperties
+  onScrubStart?: () => void
 }
 
 const BLUR_PX = 8
@@ -32,21 +33,23 @@ const ERASER_CURSOR =
  * 원본 위에 CSS blur가 걸린 동일 이미지를 겹쳐두고, 사용자가 문지른(drag) 자리만큼 그
  * 흐린 레이어에 구멍을 뚫어 아래 선명한 원본을 드러낸다. 실제 지우기 동작은 useScrubReveal 참고.
  */
-export function ScrubRevealImage({ src, alt, blurred, className, style }: ScrubRevealImageProps) {
-  const { containerRef, canvasRef, bind, maskUrl } = useScrubReveal()
+export function ScrubRevealImage({ src, alt, blurred, className, style, onScrubStart }: ScrubRevealImageProps) {
+  const { containerRef, canvasRef, bind, maskUrl, hitPadding } = useScrubReveal({ onScrubStart })
 
   return (
     <div
       ref={containerRef}
       style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', ...style }}
-      className={classNames('overflow-hidden select-none', className)}
+      className={classNames('select-none', className)}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} className='h-full w-full object-cover' alt={alt} />
+      {/* 이미지 레이어만 여기서 클리핑한다 — 문지르기 판정 캔버스는 이 박스 밖(폴라로이드
+          여백 쪽)까지 넓게 잡아야 해서 이 overflow-hidden의 영향을 받으면 안 된다. */}
+      <div className='absolute inset-0 h-full w-full overflow-hidden'>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} className='h-full w-full object-cover' alt={alt} />
 
-      {blurred && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+        {blurred && (
+          // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
           <img
             src={src}
             aria-hidden
@@ -69,13 +72,30 @@ export function ScrubRevealImage({ src, alt, blurred, className, style }: ScrubR
               maskMode: 'alpha',
             }}
           />
-          <canvas
-            {...bind()}
-            ref={canvasRef}
-            className='absolute inset-0 h-full w-full touch-none select-none opacity-0'
-            style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', cursor: ERASER_CURSOR }}
-          />
-        </>
+        )}
+      </div>
+
+      {blurred && (
+        <canvas
+          {...bind()}
+          ref={canvasRef}
+          // CSS 박스(=문지르기 판정 영역)를 사진 실제 크기보다 사방으로 hitPadding만큼 넓힌다.
+          // canvas는 대체 요소(replaced element)라 width/height를 명시하지 않으면 inset을 줘도
+          // 자기 고유(intrinsic) 크기(=canvas.width/height 해상도)를 그대로 써버려서 박스가
+          // 커지지 않는다 — width/height를 calc()로 직접 명시해야 실제로 확장된다. 캔버스
+          // 해상도 자체(마스크 계산 기준)는 그대로 사진 크기라 블러/마스크 정렬에는 영향이
+          // 없다 — useScrubReveal의 erase()가 좌표를 그 비율만큼 다시 스케일링해서 그린다.
+          className='absolute touch-none select-none opacity-0'
+          style={{
+            top: -hitPadding,
+            left: -hitPadding,
+            width: `calc(100% + ${hitPadding * 2}px)`,
+            height: `calc(100% + ${hitPadding * 2}px)`,
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            cursor: ERASER_CURSOR,
+          }}
+        />
       )}
     </div>
   )

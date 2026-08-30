@@ -226,7 +226,7 @@ export function FloatingIcon({
   children,
   /** 초당 이동 속도(px) — duration을 고정하지 않고 이 속도와 실제 경로 길이로 역산해서, 컨테이너
    * 크기가 달라도 표류하는 체감 속도가 비슷하게 유지된다. */
-  speedPxPerSec = 5,
+  speedPxPerSec = 7,
   delay = 0,
   waypoints = 5,
   /** 이 아이콘의 컨테이너 안에 걸쳐 있는, 지나가면 안 되는 요소(예: 하단 소셜 버튼 묶음). */

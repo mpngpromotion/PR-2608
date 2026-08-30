@@ -83,7 +83,7 @@ export default function Home() {
           <div id='top-space' className='w-full h-full min-h-0 flex flex-col gap-2 '>
             <div className='w-full h-full flex flex-row justify-between '>
               {/* 앨범 소개 */}
-              <div id='icon-album-container' className={classNames('', 'flex-1', '')}>
+              <div id='icon-album-container' className={classNames('scale-90 ', 'flex-1', '')}>
                 <FloatingIcon>
                   <MotionDiv id='icon-album' clickable className={classNames('w-24')} isDone={isGrouped}>
                     <ActionByDate date={releaseDate('album')} tempDuration={2000} onClick={() => router.push('/album')}>
@@ -104,7 +104,7 @@ export default function Home() {
               </div>
 
               {/* 무드필름 만들기 */}
-              <div id='icon-moodFilm-container' className={classNames('', 'flex-1')}>
+              <div id='icon-moodFilm-container' className={classNames('scale-90 ', 'flex-1')}>
                 <FloatingIcon>
                   <MotionDiv id='icon-moodFilm' clickable className={classNames('w-16')} isDone={isGrouped}>
                     <ActionByDate
@@ -151,7 +151,7 @@ export default function Home() {
 
             <div className='w-fulll h-full relative  flex flex-row justify-between'>
               {/* 갤러리 */}
-              <div id='icon-gallery-container' className='flex-1 h-full '>
+              <div id='icon-gallery-container' className='flex-1 h-full scale-90 '>
                 <FloatingIcon avoidRef={snsRef}>
                   <MotionDiv id='icon-gallery' clickable className={classNames('w-14')} isDone={isGrouped}>
                     <ActionByDate
@@ -176,7 +176,7 @@ export default function Home() {
               </div>
 
               {/* 가사게임 */}
-              <div id='icon-lyrics-container' className='h-full flex-1 '>
+              <div id='icon-lyrics-container' className='h-full flex-1 scale-90 '>
                 <FloatingIcon avoidRef={snsRef}>
                   <MotionDiv id='icon-lyrics' clickable className={classNames('w-24')} isDone={isGrouped}>
                     <ActionByDate
