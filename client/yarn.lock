@@ -1243,6 +1243,11 @@
   resolved "https://registry.yarnpkg.com/@lottiefiles/dotlottie-web/-/dotlottie-web-0.79.2.tgz#e10f5718189f002fcb2deb012cc9d97a77fe59e5"
   integrity sha512-9/LBOmTqhrFOB6298tD9BEfCmTESHKL51u8meNQF7lgsSsdFMC2Xx7jd/jZTC5svWXzcE2qZ0XvaoGbopIUElw==
 
+"@mediabunny/aac-encoder@^1.55.4":
+  version "1.55.4"
+  resolved "https://registry.yarnpkg.com/@mediabunny/aac-encoder/-/aac-encoder-1.55.4.tgz#8ca07b84689c80c99eb4a1e838ff64bec3b6bb9b"
+  integrity sha512-wxwuXnH+q0TGwFwvK42Xbld13RvogwSDe0ipeshfRhCNb1xTmLgqo0yzipmnPSZXn8d02TCWGFe8XDyNCtTU1w==
+
 "@napi-rs/wasm-runtime@^1.1.4":
   version "1.2.3"
   resolved "https://registry.yarnpkg.com/@napi-rs/wasm-runtime/-/wasm-runtime-1.2.3.tgz#97e3d45d7424dc5da1d4e32f3bf3b292f6c1b44c"
