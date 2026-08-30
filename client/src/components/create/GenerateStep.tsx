@@ -14,16 +14,17 @@ export interface GeneratedVideoResult {
 
 interface GenerateStepProps {
   photos: string[]
+  color: string
   onDone: (result: GeneratedVideoResult | null) => void
 }
 
-export function GenerateStep({ photos, onDone }: GenerateStepProps) {
+export function GenerateStep({ photos, color, onDone }: GenerateStepProps) {
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     let cancelled = false
 
-    generateVideoFromFrames({ photos, aspectRatio: '3:4', onProgress: (p) => !cancelled && setProgress(p) }).then(
+    generateVideoFromFrames({ photos, color, onProgress: (p) => !cancelled && setProgress(p) }).then(
       (video) => {
         if (cancelled) return
         onDone(

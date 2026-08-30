@@ -67,7 +67,7 @@ interface IntroGatherProps {
   spring?: GatherSpring
 }
 
-const MIN_PHOTOS = 4
+const MIN_PHOTOS = 12
 const MAX_PHOTOS = 12
 
 // 기획안 화면 1~2: 화면을 터치하면 흩어진 사각형 5개가 메인 인트로(GatherLetters)와 똑같은
@@ -78,6 +78,7 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
   const [started, setStarted] = useState(false)
   const [phase, setPhase] = useState<Phase>('gathering')
   const [name, setName] = useState('')
+  const [color, setColor] = useState('#979797')
   const [photos, setPhotos] = useState<string[]>([])
   // 폰카메라 원본 사진은 용량이 커서 그리드 썸네일로 디코딩되는 데 눈에 띄게 걸릴 수 있어,
   // 다 디코딩된(onLoad) 사진만 여기 표시하고 그 전엔 스피너를 보여준다.
@@ -169,6 +170,15 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
                     placeholder=''
                     className='w-48 border-b border-white bg-transparent px-2 text-center outline-none placeholder:text-white/70 caret-white'
                   />
+                  <label className='flex items-center gap-2 text-sm'>
+                    사진 테두리 · 텍스트 컬러
+                    <input
+                      type='color'
+                      value={color}
+                      onChange={(event) => setColor(event.target.value)}
+                      className='h-8 w-8 cursor-pointer rounded border border-white/40 bg-transparent p-0'
+                    />
+                  </label>
                   <span className='absolute bottom-6 text-xs opacity-70'>{name.length}/10</span>
                 </div>
                 <div className='flex-1 flex w-fit flex-col items-center justify-center'>
@@ -247,9 +257,7 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
                     className='hidden'
                   />
 
-                  <span className='text-xs opacity-70'>
-                    {photos.length}/{MAX_PHOTOS}장 · 최소 {MIN_PHOTOS}장
-                  </span>
+                  <span className='text-xs opacity-70'>{photos.length}/{MAX_PHOTOS}장 · 정확히 {MAX_PHOTOS}장을 선택해주세요</span>
                 </div>
 
                 <div className='flex-1 flex w-fit flex-col items-center justify-center'>
@@ -266,7 +274,7 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
             )}
             {phase === 'generating' && (
               <motion.div key='generating' {...PHASE_TRANSITION} className='w-full h-full flex flex-col items-center'>
-                <GenerateStep photos={photos} onDone={(result) => onDone(result, name)} />
+                <GenerateStep photos={photos} color={color} onDone={(result) => onDone(result, name)} />
               </motion.div>
             )}
           </AnimatePresence>
