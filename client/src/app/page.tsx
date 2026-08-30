@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import classNames from 'classnames'
 import {
@@ -11,8 +12,6 @@ import {
   GatheredBackground,
   MotionDiv,
   FloatingIcon,
-  useFloatingPaths,
-  QUADRANTS,
   ActionByDate,
   Crossfade,
 } from '@/components'
@@ -54,16 +53,13 @@ const SOCIAL_SITES = [
 
 export default function Home() {
   const router = useRouter()
-  const { progress, isGrouped, showIntroHint, handleWheel, handleTouchMove, handleTouchEnd } = useGatherProgress()
-  // 앨범/무드필름/갤러리/가사게임 아이콘 4개가 화면 전체에 골고루 퍼져 보이도록, 실제 배치와
-  // 맞는 사분면(좌상/우상/좌하/우하)에 각자 가둬서 그 안에서만 떠다니게 한다. sizePx는 아래
-  // MotionDiv에 준 실제 너비(w-24=96px, w-14=56px)와 맞춰야 화면 밖으로 안 나간다.
-  const [albumPath, moodFilmPath, galleryPath, lyricsPath] = useFloatingPaths([
-    { sizePx: 96, region: QUADRANTS.topLeft },
-    { sizePx: 96, region: QUADRANTS.topRight },
-    { sizePx: 56, region: QUADRANTS.bottomLeft },
-    { sizePx: 96, region: QUADRANTS.bottomRight },
-  ])
+  const { progress, isGrouped, showIntroHint, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd } =
+    useGatherProgress()
+  // 앨범/무드필름/갤러리/가사게임 아이콘은 각자 자기 -container div(예: #icon-lyrics-container)
+  // 영역 안에서만 떠다닌다.
+  // 갤러리/가사 컨테이너는 정확히 이 소셜 버튼 묶음 자리에서 서로 맞닿아 있어서(가운데 정렬),
+  // 두 아이콘 모두 이 요소를 avoidRef로 넘겨 그 자리만 피해서 지나가게 한다.
+  const snsRef = useRef<HTMLDivElement>(null)
 
   return (
     <>
@@ -72,10 +68,11 @@ export default function Home() {
       <link rel='preload' as='video' href='/video/test-video.mp4' />
       <div
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ '--album-size': 'min(50vw, 28rem)' } as React.CSSProperties}
-        className='relative h-dvh w-full touch-none'
+        style={{ '--album-size': 'min(50vw, 28rem)', WebkitTouchCallout: 'none' } as React.CSSProperties}
+        className='relative h-dvh w-full touch-none select-none'
       >
         <IntroHint show={showIntroHint} />
         <GatherLetters progress={progress} isGrouped={isGrouped} />
@@ -85,9 +82,9 @@ export default function Home() {
         >
           <div id='top-space' className='w-full h-full min-h-0 flex flex-col gap-2 '>
             <div className='w-full h-full flex flex-row justify-between '>
-              <div className={classNames('', 'flex-3 h-[80%] self-start', 'flex items-center justify-center')}>
-                {/* 앨범 소개 */}
-                <FloatingIcon path={albumPath} duration={38}>
+              {/* 앨범 소개 */}
+              <div id='icon-album-container' className={classNames('', 'flex-1', '')}>
+                <FloatingIcon>
                   <MotionDiv id='icon-album' clickable className={classNames('w-24')} isDone={isGrouped}>
                     <ActionByDate date={releaseDate('album')} tempDuration={2000} onClick={() => router.push('/album')}>
                       {({ isRevealing, onClick }) => (
@@ -105,11 +102,11 @@ export default function Home() {
                   </MotionDiv>
                 </FloatingIcon>
               </div>
-              <div className='flex-1 ' />
-              <div className={classNames('', 'flex-2 h-[50%] self-end', 'flex items-center justify-center')}>
-                {/* 무드필름 만들기 */}
-                <FloatingIcon path={moodFilmPath} duration={44}>
-                  <MotionDiv id='icon-moodFilm' clickable className={classNames('w-24')} isDone={isGrouped}>
+
+              {/* 무드필름 만들기 */}
+              <div id='icon-moodFilm-container' className={classNames('', 'flex-1')}>
+                <FloatingIcon>
+                  <MotionDiv id='icon-moodFilm' clickable className={classNames('w-16')} isDone={isGrouped}>
                     <ActionByDate
                       date={releaseDate('moodFilm')}
                       tempDuration={2000}
@@ -131,10 +128,11 @@ export default function Home() {
                 </FloatingIcon>
               </div>
             </div>
-            <div className='w-full h-fit flex items-center justify-center pb-3 '>
+
+            <div className='w-full h-fit  flex items-center justify-center pb-3 '>
               <MotionDiv className={classNames('text-base text-nowrap text-center')} isDone={isGrouped}>
                 <DisplayByDate date={releaseDate('epAnnounce')}>
-                  {(isAfter) => <span>{isAfter ? ' SORAN EP [Layer]' : 'ㅤ'}</span>}
+                  {(isAfter) => <span>{isAfter ? '소란(SORAN) EP [Layer]' : 'ㅤ'}</span>}
                 </DisplayByDate>
               </MotionDiv>
             </div>
@@ -142,18 +140,19 @@ export default function Home() {
 
           <GatheredBackground isGrouped={isGrouped} />
 
-          <div id='bottom-space' className='w-full h-full min-h-0 flex flex-col  gap-2'>
-            <div className='w-full h-fit flex items-center justify-center pt-3'>
+          <div id='bottom-space' className=' w-full h-full min-h-0 flex flex-col  gap-2'>
+            <div className='w-full  h-fit flex items-center justify-center pt-3'>
               <MotionDiv className={classNames('text-base text-nowrap text-center')} isDone={isGrouped}>
                 <DisplayByDate date={releaseDate('releaseDate')}>
                   {(isAfter) => <span>{isAfter ? '2026.09.18' : 'ㅤ'}</span>}
                 </DisplayByDate>
               </MotionDiv>
             </div>
-            <div className='w-fulll h-full  flex flex-row justify-between gap-4'>
-              <div className='flex-1 h-full flex flex-col justify-start items-center '>
-                {/* 갤러리 */}
-                <FloatingIcon path={galleryPath} duration={35}>
+
+            <div className='w-fulll h-full relative  flex flex-row justify-between'>
+              {/* 갤러리 */}
+              <div id='icon-gallery-container' className='flex-1 h-full '>
+                <FloatingIcon avoidRef={snsRef}>
                   <MotionDiv id='icon-gallery' clickable className={classNames('w-14')} isDone={isGrouped}>
                     <ActionByDate
                       date={releaseDate('gallery')}
@@ -176,32 +175,9 @@ export default function Home() {
                 </FloatingIcon>
               </div>
 
-              {/* 소셜 미디어 링크 */}
-              <div className='h-full flex-1 flex flex-col shrink-0 justify-end items-center   '>
-                <div className='w-fit h-fit flex flex-row items-center  justify-center gap-4'>
-                  {SOCIAL_SITES.map((site) => (
-                    <MotionDiv
-                      key={site.name}
-                      clickable
-                      className={classNames('w-[32px] h-[32px]', site.name === 'x' ? '-ml-1' : '')}
-                      isDone={isGrouped}
-                    >
-                      <Link href={site.link} target='_blank' rel='noopener noreferrer'>
-                        <img
-                          src={`/img/icons/${site.name}.png`}
-                          alt={site.name}
-                          className='w-full h-full object-contain'
-                        />
-                      </Link>
-                    </MotionDiv>
-                  ))}
-                </div>
-                <div className='h-[35%]' />
-              </div>
-
-              <div className='h-full flex-1 flex flex-col justify-end items-center '>
-                {/* 가사게임 */}
-                <FloatingIcon path={lyricsPath} duration={41}>
+              {/* 가사게임 */}
+              <div id='icon-lyrics-container' className='h-full flex-1 '>
+                <FloatingIcon avoidRef={snsRef}>
                   <MotionDiv id='icon-lyrics' clickable className={classNames('w-24')} isDone={isGrouped}>
                     <ActionByDate
                       date={releaseDate('lyrics')}
@@ -222,7 +198,29 @@ export default function Home() {
                     </ActionByDate>
                   </MotionDiv>
                 </FloatingIcon>
-                <div className='h-[12%]' />
+              </div>
+
+              {/* 소셜 미디어 링크 */}
+              <div
+                ref={snsRef}
+                className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-fit h-fit  flex flex-row items-center  justify-center gap-4'
+              >
+                {SOCIAL_SITES.map((site) => (
+                  <MotionDiv
+                    key={site.name}
+                    clickable
+                    className={classNames('w-[32px] h-[32px]', site.name === 'x' ? '-ml-1' : '')}
+                    isDone={isGrouped}
+                  >
+                    <Link href={site.link} target='_blank' rel='noopener noreferrer'>
+                      <img
+                        src={`/img/icons/${site.name}.png`}
+                        alt={site.name}
+                        className='w-full h-full object-contain'
+                      />
+                    </Link>
+                  </MotionDiv>
+                ))}
               </div>
             </div>
           </div>

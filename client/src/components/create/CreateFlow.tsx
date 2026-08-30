@@ -70,7 +70,7 @@ export function CreateFlow() {
   // SNS 공유 시 같이 실리는 문구. 링크를 넣어서 공유받은 사람도 직접 만들어볼 수 있게 한다.
   const buildShareText = () => {
     const siteUrl = typeof window !== 'undefined' ? `${window.location.origin}` : ''
-    return `${name || '무드필름'}의 Layer가 공유되었습니다.\n\nSORAN의 Layer 웹사이트에서 무드필름을 만들어보세요!\n\n${siteUrl}`
+    return `${name || '무드필름'}의 Layer가 공유되었습니다.\nlayerbySORAN에서 나만의 Layer를 만들어보세요!\n\n${siteUrl}`
   }
 
   const handleShareVideo = async () => {
@@ -88,7 +88,7 @@ export function CreateFlow() {
     } catch (error) {
       // 사용자가 공유 시트를 취소한 경우(AbortError)는 정상 흐름이라 조용히 넘어간다.
       if (error instanceof Error && error.name !== 'AbortError') {
-        alert(`공유에 실패했어요.\n${error.name}: ${error.message}`)
+        alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
       }
     } finally {
       setShareStatus('idle')
@@ -115,7 +115,7 @@ export function CreateFlow() {
       await navigator.share({ files: [file], text: buildShareText() })
     } catch (error) {
       if (error instanceof Error && error.name !== 'AbortError') {
-        alert(`공유에 실패했어요.\n${error.name}: ${error.message}`)
+        alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
       }
     } finally {
       setShareStatus('idle')

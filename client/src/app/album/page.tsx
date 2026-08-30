@@ -22,7 +22,7 @@ export default function AlbumPage() {
             <p>떠올리면 행복해지는 앨범으로 오래 남기를.</p>
           </div>
           <div className='flex-1 flex flex-col justify-center items-center'>
-            <p>SORAN EP [Layer]</p>
+            <p>소란(SORAN) EP [Layer]</p>
           </div>
         </FadeInView>
       </div>

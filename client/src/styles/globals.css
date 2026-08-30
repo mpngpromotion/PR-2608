@@ -25,7 +25,6 @@
   --animate-onload: onload 2s ease-out forwards;
   --animate-gravity: gravity 0.5s ease-in-out forwards;
   --animate-spinslow: spinslow 15s linear infinite;
-  --animate-pinchMotion: pinchMotion 3s ease-in-out infinite;
 
   @keyframes onload {
     0% {
@@ -54,20 +53,6 @@
 
     100% {
       transform: rotate(360deg);
-    }
-  }
-
-  @keyframes pinchMotion {
-    0% {
-      opacity: 0;
-    }
-
-    50% {
-      opacity: 1;
-    }
-
-    100% {
-      opacity: 0;
     }
   }
 }
