@@ -5,7 +5,7 @@ import classNames from 'classnames'
 import { IoIosArrowBack } from 'react-icons/io'
 import { commonTransition } from '@/theme/transition'
 
-export const Header = ({ className }: { className?: string }) => {
+export const Header = ({ className, isBlack = false }: { className?: string; isBlack?: boolean }) => {
   const router = useRouter()
 
   const handleBack = () => {
@@ -26,7 +26,11 @@ export const Header = ({ className }: { className?: string }) => {
         <IoIosArrowBack />
       </button>
       {/*  eslint-disable-next-line @next/next/no-img-element */}
-      <img src='/img/icons/soran.png' className={classNames('w-20')} alt='소란' />
+      <img
+        src={isBlack ? '/img/icons/soran_black.png' : '/img/icons/soran.png'}
+        className={classNames('w-20')}
+        alt='소란'
+      />
     </div>
   )
 }

@@ -46,8 +46,6 @@ export const MOOD_FILM_LAYER_START_TIMES = [...new Set(layers.map((layer) => lay
 // 색으로 물들여서 쓴다. 1080×1440 기준으로 그려져 있어서, 실제 출력 해상도에 맞게
 // drawImage로 늘려 그리면 된다.
 const TYPOGRAPHY_SVG_URL = '/video/template.svg'
-// SVG 안에서 실제로 쓰이는 채우기 색 — 이 값을 사용자가 고른 색으로 치환한다.
-const TYPOGRAPHY_SVG_SOURCE_COLOR = '#131313'
 
 let typographySvgTextPromise: Promise<string> | null = null
 
@@ -67,7 +65,9 @@ export async function prepareTypographyOverlay(color: string): Promise<HTMLImage
   }
 
   const svgText = await loadTypographySvgText()
-  const recoloredSvg = svgText.replaceAll(TYPOGRAPHY_SVG_SOURCE_COLOR, color)
+  // template.svg의 path는 fill이 생략돼 있어 기본값(검정)으로 렌더링된다.
+  // 루트에 fill을 지정하면 투명 배경(rect의 fill: none)은 유지하면서 모든 글자 path가 색을 상속받는다.
+  const recoloredSvg = svgText.replace('<svg ', `<svg fill="${color}" `)
   const url = URL.createObjectURL(new Blob([recoloredSvg], { type: 'image/svg+xml' }))
 
   try {

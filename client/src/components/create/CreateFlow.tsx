@@ -141,7 +141,7 @@ export function CreateFlow() {
       {step === 'done' && (
         <motion.div key='done' {...STEP_TRANSITION} className='w-full h-dvh  flex flex-col items-center text-center'>
           <div className='h-fit shrink-0  flex w-screen! flex-col items-center break-keep justify-center gap-4 pt-8 pb-6 text-base bg-black/30 text-white'>
-            <Header className='text-white!' />
+            <Header className='' isBlack={true} />
             <span className='w-fit h-fit '>{name ? `${name}` : '무드필름'}의 Layer가 완성되었습니다.</span>
           </div>
 
