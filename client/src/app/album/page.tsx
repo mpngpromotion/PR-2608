@@ -40,25 +40,6 @@ export default function AlbumPage() {
         <Header />
       </FadeInView>
       <div className=' w-full min-h-full h-fit pb-16 overflow-y-scroll flex flex-col justify-start items-center gap-8 px-10'>
-        <FadeInView className='w-full flex justify-center items-center' delay={0.1}>
-          <YouTube
-            videoId='2NyfVo89JRA'
-            className={'w-full h-fit'} // defaults -> ''
-            iframeClassName={'w-full h-auto aspect-landscape'} // defaults -> ''
-            loading={undefined} // defaults -> undefined
-            opts={opts}
-            onReady={onPlayerReady}
-            onPlay={() => {}} // defaults -> noop
-            onPause={() => {}} // defaults -> noop
-            onEnd={(e) => {
-              e.target.stopVideo(0)
-            }}
-            onError={() => {}} // defaults -> noop
-            onStateChange={() => {}} // defaults -> noop
-            onPlaybackRateChange={() => {}} // defaults -> noop
-            onPlaybackQualityChange={() => {}} // defaults -> noop
-          />
-        </FadeInView>
         <FadeInView className='w-full flex flex-col justify-end items-center p-2' delay={0.1}>
           <img src='/img/title.png' alt='소란' className='w-40' />
         </FadeInView>
@@ -73,6 +54,25 @@ export default function AlbumPage() {
           <div className='flex-1 flex flex-col justify-center items-center'>
             <p>소란(SORAN) EP [Layer]</p>
           </div>
+        </FadeInView>
+        <FadeInView className='w-full flex justify-center items-center' delay={0.1}>
+          <YouTube
+            videoId='2NyfVo89JRA'
+            className={'w-full h-fit'} // defaults -> ''
+            iframeClassName={'w-full h-auto aspect-3/4'} // defaults -> ''
+            loading={undefined} // defaults -> undefined
+            opts={opts}
+            onReady={onPlayerReady}
+            onPlay={() => {}} // defaults -> noop
+            onPause={() => {}} // defaults -> noop
+            onEnd={(e) => {
+              e.target.stopVideo(0)
+            }}
+            onError={() => {}} // defaults -> noop
+            onStateChange={() => {}} // defaults -> noop
+            onPlaybackRateChange={() => {}} // defaults -> noop
+            onPlaybackQualityChange={() => {}} // defaults -> noop
+          />
         </FadeInView>
       </div>
     </div>

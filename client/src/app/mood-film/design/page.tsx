@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { MOOD_FILM_DURATION, MOOD_FILM_LAYER_START_TIMES, drawFrame, ensureTypographyFontLoaded } from '@/components/create/lib/video/moodFilmVideo'
+import { MOOD_FILM_DURATION, MOOD_FILM_LAYER_START_TIMES, drawFrame, prepareTypographyOverlay } from '@/components/create/lib/video/moodFilmVideo'
 
 const WIDTH = 1080
 const HEIGHT = 1440
@@ -35,21 +35,25 @@ function createPlaceholderImage(color: string): Promise<HTMLImageElement> {
 export default function MoodFilmDesignPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [images, setImages] = useState<HTMLImageElement[] | null>(null)
-  const [fontReady, setFontReady] = useState(false)
+  const [typographyOverlay, setTypographyOverlay] = useState<HTMLImageElement | null>(null)
   const [color, setColor] = useState('#979797')
   const [time, setTime] = useState(MOOD_FILM_DURATION)
 
   useEffect(() => {
     Promise.all(PLACEHOLDER_COLORS.map(createPlaceholderImage)).then(setImages)
-    ensureTypographyFontLoaded().then(() => setFontReady(true))
   }, [])
 
+  // 타이포그래피 SVG는 색이 그 안에 칠해져 있어서, 컬러가 바뀔 때마다 다시 물들여야 한다.
   useEffect(() => {
-    if (!images || !fontReady) return
+    prepareTypographyOverlay(color).then(setTypographyOverlay)
+  }, [color])
+
+  useEffect(() => {
+    if (!images || !typographyOverlay) return
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return
-    drawFrame(ctx, images, time, WIDTH, HEIGHT, color)
-  }, [images, fontReady, color, time])
+    drawFrame(ctx, images, time, WIDTH, HEIGHT, color, typographyOverlay)
+  }, [images, typographyOverlay, color, time])
 
   return (
     <div className='flex min-h-dvh flex-col items-center gap-4 bg-neutral-900 p-4 text-white'>

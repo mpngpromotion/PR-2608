@@ -8,7 +8,7 @@ import {
   MOOD_FILM_LAYERS,
   type MoodFilmLayer,
   drawFrame,
-  ensureTypographyFontLoaded,
+  prepareTypographyOverlay,
 } from '@/components/create/lib/video/moodFilmVideo'
 
 const WIDTH = 1080
@@ -75,7 +75,7 @@ export default function MoodFilmLayerTestPage() {
   const [uploadedImages, setUploadedImages] = useState<(HTMLImageElement | null)[]>(() => Array(LAYER_COUNT).fill(null))
   const [photoUrls, setPhotoUrls] = useState<(string | null)[]>(() => Array(LAYER_COUNT).fill(null))
 
-  const [fontReady, setFontReady] = useState(false)
+  const [typographyOverlay, setTypographyOverlay] = useState<HTMLImageElement | null>(null)
   const [color, setColor] = useState('#979797')
   const [frame, setFrame] = useState(0)
 
@@ -89,8 +89,12 @@ export default function MoodFilmLayerTestPage() {
 
   useEffect(() => {
     Promise.all(Array.from({ length: LAYER_COUNT }, (_, i) => createPlaceholderImage(i))).then(setPlaceholders)
-    ensureTypographyFontLoaded().then(() => setFontReady(true))
   }, [])
+
+  // 타이포그래피 SVG는 색이 그 안에 칠해져 있어서, 컬러가 바뀔 때마다 다시 물들여야 한다.
+  useEffect(() => {
+    prepareTypographyOverlay(color).then(setTypographyOverlay)
+  }, [color])
 
   // 슬롯별 파일 input이 새 object URL을 만들면 예전 것은 정리한다.
   useEffect(() => {
@@ -141,11 +145,11 @@ export default function MoodFilmLayerTestPage() {
   const time = frame / MOOD_FILM_FPS
 
   useEffect(() => {
-    if (!images || !fontReady) return
+    if (!images || !typographyOverlay) return
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return
-    drawFrame(ctx, images, time, WIDTH, HEIGHT, color, drawLayers)
-  }, [images, fontReady, color, time, drawLayers])
+    drawFrame(ctx, images, time, WIDTH, HEIGHT, color, typographyOverlay, drawLayers)
+  }, [images, typographyOverlay, color, time, drawLayers])
 
   // 참조 영상이 있으면 캔버스 스크러빙 시간에 맞춰 같은 지점으로 seek해서 겹쳐 보이게 한다.
   useEffect(() => {

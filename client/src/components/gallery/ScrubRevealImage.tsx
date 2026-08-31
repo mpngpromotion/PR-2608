@@ -49,14 +49,14 @@ export function ScrubRevealImage({ src, alt, blurred, className, style, onSuffic
           여백 쪽)까지 넓게 잡아야 해서 이 overflow-hidden의 영향을 받으면 안 된다. */}
       <div className='absolute inset-0 h-full w-full overflow-hidden'>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} className='h-full w-full object-cover' alt={alt} />
+        <img src={src} className='h-full w-full object-cover object-center' alt={alt} />
 
         {blurred && (
           // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
           <img
             src={src}
             aria-hidden
-            className='pointer-events-none absolute inset-0 h-full w-full object-cover'
+            className='pointer-events-none absolute inset-0 h-full w-full object-cover object-center'
             style={{
               // filter: blur()는 요소 박스 안에서만 계산돼서, 가장자리가 박스 밖(투명)과
               // 섞이며 흐림이 옅어진다(비네트처럼 가장자리만 흐림이 빠짐). scale로 살짝

@@ -42,101 +42,51 @@ export const MOOD_FILM_LAYERS: MoodFilmLayer[] = layers
 // exportMoodFilmVideo가 다시 매 프레임(1/30초 균일 duration)을 전부 인코딩한다.
 export const MOOD_FILM_LAYER_START_TIMES = [...new Set(layers.map((layer) => layer.startSec))].sort((a, b) => a - b)
 
-const TYPOGRAPHY_FONT_FAMILY = 'Sofia Sans Condensed'
-const TYPOGRAPHY_FONT_URL = '/fonts/SofiaSans-Variable.ttf'
+// 타이포그래피는 직접 만든 SVG(글자 하나하나가 벡터 패스, 전부 같은 색)를 사용자가 고른
+// 색으로 물들여서 쓴다. 1080×1440 기준으로 그려져 있어서, 실제 출력 해상도에 맞게
+// drawImage로 늘려 그리면 된다.
+const TYPOGRAPHY_SVG_URL = '/video/template.svg'
+// SVG 안에서 실제로 쓰이는 채우기 색 — 이 값을 사용자가 고른 색으로 치환한다.
+const TYPOGRAPHY_SVG_SOURCE_COLOR = '#131313'
 
-let typographyFontLoadPromise: Promise<void> | null = null
+let typographySvgTextPromise: Promise<string> | null = null
 
-// FontFace는 브라우저 전용 API라 모듈 최상단에서 바로 실행하면 Next.js의 서버 렌더링
-// 단계에서도 이 파일이 평가되면서 "FontFace is not defined" 에러가 난다. 그래서 함수로
-// 감싸서 실제로 그릴 때(브라우저에서)만, 그것도 한 번만 로드하도록 한다.
-export function ensureTypographyFontLoaded(): Promise<void> {
-  if (!typographyFontLoadPromise) {
-    typographyFontLoadPromise = (async () => {
-      const fontFace = new FontFace(TYPOGRAPHY_FONT_FAMILY, `url(${TYPOGRAPHY_FONT_URL})`, {
-        weight: '1 1000', // 이 폰트가 지원하는 실제 범위(베리어블 폰트)
-      })
-      const loaded = await fontFace.load()
-      document.fonts.add(loaded)
-    })()
+function loadTypographySvgText(): Promise<string> {
+  if (!typographySvgTextPromise) {
+    typographySvgTextPromise = fetch(TYPOGRAPHY_SVG_URL).then((response) => response.text())
   }
-  return typographyFontLoadPromise
+  return typographySvgTextPromise
 }
 
-type TypographyLine = {
-  text: string
-  x: number
-  y: number
-  fontFamily: string
-  fontWeight: number
-  fontSize: number
-  tracking: number
-  align: CanvasTextAlign
-  scaleX: number
-  scaleY: number
+let cachedTypographyOverlay: { color: string; image: HTMLImageElement } | null = null
+
+// 같은 색이면 다시 안 만들고 캐시해둔 걸 그대로 쓴다 — 색이 바뀔 때만 다시 만든다.
+export async function prepareTypographyOverlay(color: string): Promise<HTMLImageElement> {
+  if (cachedTypographyOverlay && cachedTypographyOverlay.color === color) {
+    return cachedTypographyOverlay.image
+  }
+
+  const svgText = await loadTypographySvgText()
+  const recoloredSvg = svgText.replaceAll(TYPOGRAPHY_SVG_SOURCE_COLOR, color)
+  const url = URL.createObjectURL(new Blob([recoloredSvg], { type: 'image/svg+xml' }))
+
+  try {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    cachedTypographyOverlay = { color, image }
+    return image
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
-// Premiere Essential Graphics에서 읽은 실제 좌표/폰트 크기/자간 값 (1080×1440 기준).
-const typography: TypographyLine[] = [
-  {
-    text: 'Life',
-    x: 0,
-    y: 793,
-    fontFamily: `"${TYPOGRAPHY_FONT_FAMILY}", sans-serif`,
-    fontWeight: 500,
-    fontSize: 300,
-    tracking: -50,
-    align: 'left',
-    scaleX: 0.75,
-    scaleY: 0.75,
-  },
-  {
-    text: 'is',
-    x: 480,
-    y: 793,
-    fontFamily: `"${TYPOGRAPHY_FONT_FAMILY}", sans-serif`,
-    fontWeight: 500,
-    fontSize: 300,
-    tracking: -50,
-    align: 'left',
-    scaleX: 0.75,
-    scaleY: 0.75,
-  },
-  {
-    text: 'Layer',
-    x: 698.5,
-    y: 793,
-    fontFamily: `"${TYPOGRAPHY_FONT_FAMILY}", sans-serif`,
-    fontWeight: 500,
-    fontSize: 300,
-    tracking: -50,
-    align: 'left',
-    scaleX: 0.75,
-    scaleY: 0.75,
-  },
-  {
-    text: 'SORAN EP [LAYER]',
-    x: 540.7,
-    y: 1410,
-    fontFamily: `"${TYPOGRAPHY_FONT_FAMILY}", sans-serif`,
-    fontWeight: 600,
-    fontSize: 34,
-    tracking: 301,
-    align: 'center',
-    scaleX: 0.75,
-    scaleY: 0.76,
-  },
-]
+// Premiere에서 쓴 사진 카드 크기 — 프레임 가로폭의 약 64.4%, 3:4 카드 모양.
+const PHOTO_WIDTH_RATIO = 0.644
+const PHOTO_ASPECT = 4 / 3
 
 // object-fit: cover와 동일하게, 이미지를 잘라서 목표 박스를 꽉 채운다.
-function drawCover(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, width: number, height: number) {
   const imageWidth = img.naturalWidth || img.width
   const imageHeight = img.naturalHeight || img.height
 
@@ -149,52 +99,6 @@ function drawCover(
   ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height)
 }
 
-// 글자 사이 간격(자간, tracking)을 적용해서 한 글자씩 그린다. ctx.font/fillStyle은 호출 전에 맞춰둬야 한다.
-function drawTrackedText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  tracking: number,
-  align: CanvasTextAlign,
-  fontSize: number,
-) {
-  const spacing = (fontSize * tracking) / 1000
-  const chars = [...text]
-  const widths = chars.map((char) => ctx.measureText(char).width)
-  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, chars.length - 1)
-
-  let cursor = x
-  if (align === 'center') cursor -= totalWidth / 2
-  else if (align === 'right') cursor -= totalWidth
-
-  chars.forEach((char, index) => {
-    ctx.fillText(char, cursor, y)
-    cursor += widths[index] + spacing
-  })
-}
-
-function drawTypography(ctx: CanvasRenderingContext2D, width: number, height: number, color: string) {
-  // Premiere 시퀀스(1080×1440) 기준 좌표를 실제 출력 해상도에 맞게 비례 축소한다.
-  const sx = width / 1080
-  const sy = height / 1440
-
-  for (const line of typography) {
-    ctx.save()
-    ctx.translate(line.x * sx, line.y * sy)
-    ctx.scale(line.scaleX * sx, line.scaleY * sy)
-
-    ctx.fillStyle = color
-    ctx.textBaseline = 'alphabetic'
-    ctx.textAlign = 'left'
-    ctx.font = `${line.fontWeight} ${line.fontSize}px ${line.fontFamily}`
-
-    drawTrackedText(ctx, line.text, 0, 0, line.tracking, line.align, line.fontSize)
-
-    ctx.restore()
-  }
-}
-
 export function drawFrame(
   ctx: CanvasRenderingContext2D,
   images: HTMLImageElement[],
@@ -202,15 +106,15 @@ export function drawFrame(
   width: number,
   height: number,
   color: string,
+  typographyOverlay: HTMLImageElement,
   customLayers: MoodFilmLayer[] = layers,
 ) {
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, width, height)
 
-  // Premiere에서 쓴 사진 카드 크기 — 프레임 가로폭의 약 64.4%, 3:4 카드 모양.
-  const photoWidth = width * 0.644
-  const photoHeight = (photoWidth * 4) / 3
+  const photoWidth = width * PHOTO_WIDTH_RATIO
+  const photoHeight = photoWidth * PHOTO_ASPECT
 
   customLayers.forEach((layer, index) => {
     if (time < layer.startSec) return
@@ -240,7 +144,8 @@ export function drawFrame(
     ctx.restore()
   })
 
-  drawTypography(ctx, width, height, color)
+  // 타이포그래피 SVG는 1080×1440 기준으로 그려져 있어서, 출력 해상도에 맞게 늘려 그린다.
+  ctx.drawImage(typographyOverlay, 0, 0, width, height)
 }
 
 // BGM이 영상 길이보다 길면 duration만큼만 잘라서 쓴다 (짧으면 그대로 두고, 남는 구간은 무음).
@@ -301,7 +206,7 @@ export async function exportMoodFilmVideo({
 
   signal?.throwIfAborted()
 
-  await ensureTypographyFontLoaded()
+  const typographyOverlay = await prepareTypographyOverlay(color)
 
   // H.264 비디오는 폴리필이 없어서 네이티브 VideoEncoder가 필수지만, AAC는 브라우저마다 네이티브
   // 지원이 들쭉날쭉해서 없으면 WASM 폴리필을 등록해 계속 WebCodecs 경로를 쓴다.
@@ -353,11 +258,15 @@ export async function exportMoodFilmVideo({
       for (let frame = 0; frame < totalFrames; frame++) {
         if (signal?.aborted) return
         const time = frame / FPS
-        drawFrame(ctx, images, time, width, height, color)
+        drawFrame(ctx, images, time, width, height, color, typographyOverlay)
         // 키프레임 시점은 강제로 정하지 않고 인코더 기본 간격(2초)에 맡긴다 — 1초마다
         // 강제하던 것보다 I-frame이 덜 나와서 더 빠르다.
         await videoSource.add(time, 1 / FPS)
-        onProgress?.((frame + 1) / totalFrames)
+        // add()는 "더 받을 준비 됐다"는 뜻으로 인코더가 실제로 다 처리하기 전에 먼저
+        // resolve될 수 있어서, 여기서 진행률을 100%까지 다 채우면 실제로는 close()/
+        // finalize()에서 밀린 작업이 끝나길 기다리는 동안 진행률만 100%에 멈춰 보인다.
+        // 그래서 95%까지만 채우고, 나머지는 마무리 단계에서 채운다.
+        onProgress?.(((frame + 1) / totalFrames) * 0.95)
       }
       videoSource.close()
     })()
@@ -375,11 +284,14 @@ export async function exportMoodFilmVideo({
       signal.throwIfAborted()
     }
 
+    onProgress?.(0.97)
+
     // 마지막으로 그려진 프레임(사진 12장 + 타이틀 다 나온 장면)을 그대로 썸네일로 캡처한다 —
     // 캔버스를 또 만들어서 다시 그릴 필요가 없다.
     const thumbnailBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
 
     await output.finalize()
+    onProgress?.(1)
 
     const buffer = output.target.buffer
     if (!buffer) throw new Error('mediabunny가 출력 버퍼를 만들지 못했습니다.')
