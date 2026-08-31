@@ -332,6 +332,9 @@ export async function exportMoodFilmVideo({
     const videoSource = new CanvasSource(canvas, {
       codec: 'avc',
       quality: new Quality({ bitrate }),
+      // 화질보다 인코딩 속도를 우선한다 — 프레임 타이밍/개수는 안 바뀌니 카카오톡 공유
+      // 호환성엔 영향 없다.
+      latencyMode: 'realtime',
     })
     output.addVideoTrack(videoSource, { frameRate: FPS })
 
@@ -350,7 +353,9 @@ export async function exportMoodFilmVideo({
         if (signal?.aborted) return
         const time = frame / FPS
         drawFrame(ctx, images, time, width, height, color)
-        await videoSource.add(time, 1 / FPS, { keyFrame: frame % FPS === 0 })
+        // 키프레임 시점은 강제로 정하지 않고 인코더 기본 간격(2초)에 맡긴다 — 1초마다
+        // 강제하던 것보다 I-frame이 덜 나와서 더 빠르다.
+        await videoSource.add(time, 1 / FPS)
         onProgress?.((frame + 1) / totalFrames)
       }
       videoSource.close()
