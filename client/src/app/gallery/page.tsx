@@ -1,5 +1,10 @@
+import type { Metadata } from 'next'
 import { FadeInView, Header } from '@/components'
 import { GalleryCarousel } from '@/components/gallery/GalleryCarousel'
+
+export const metadata: Metadata = {
+  title: '갤러리',
+}
 
 // 직접 진입/새로고침 시 렌더되는 단독 풀페이지 (인트로 없이).
 export default function GalleryPage() {

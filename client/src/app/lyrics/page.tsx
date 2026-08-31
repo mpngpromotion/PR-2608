@@ -1,4 +1,9 @@
+import type { Metadata } from 'next'
 import { FadeInView, Header } from '@/components'
+
+export const metadata: Metadata = {
+  title: '가사 게임',
+}
 
 // 직접 진입/새로고침 시 렌더되는 단독 풀페이지 (인트로 없이).
 export default function LyricsPage() {

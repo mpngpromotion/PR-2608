@@ -1,5 +1,10 @@
 import { Suspense } from 'react'
+import type { Metadata } from 'next'
 import { CreateFlow } from '@/components/create/CreateFlow'
+
+export const metadata: Metadata = {
+  title: '무드필름',
+}
 
 // 직접 진입/새로고침 시 렌더되는 단독 풀페이지.
 // 예시 영상 재생 → 인트로 → 이름 입력 → 사진 선택 → 생성 → 완료까지의 전체 흐름은

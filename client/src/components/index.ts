@@ -1,4 +1,5 @@
 export * from './Layout'
+export * from './analytics/GoogleAnalyticsPageView'
 export * from './create/CreateFlow'
 export * from './gallery/GalleryCarousel'
 export * from './DisplayByDate'

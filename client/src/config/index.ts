@@ -3,7 +3,7 @@ export * from './chapters'
 export const APP_INFO = {
   name: 'LayerbySORAN', // 웹사이트의 이름
   title: 'LayerbySORAN', // 웹사이트의 기본 제목
-  titleTemplate: '%s', // 페이지별로 제목이 필요한 경우 사용 예: 'About - 6800miles'
+  titleTemplate: 'LayerbySORAN | %s', // 페이지별로 제목이 필요한 경우 사용 예: 'LayerbySORAN | 앨범 소개'
   description: '소란(SORAN) EP [Layer]', // 웹사이트의 설명
   keywords: [],
   authors: [
