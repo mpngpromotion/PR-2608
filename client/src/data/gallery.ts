@@ -10,14 +10,14 @@ export interface GalleryPhoto {
 }
 
 export const GALLERY_PHOTOS: GalleryPhoto[] = [
-  { id: 'g1', src: '/img/gallery/0908_01.webp', openDate: '2026-09-08 18:00:00', initiallyBlurred: false },
-  { id: 'g2', src: '/img/gallery/0909_01.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: false },
-  { id: 'g3', src: '/img/gallery/0909_01_blur.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
-  { id: 'g4', src: '/img/gallery/0909_02_blur.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
-  { id: 'g5', src: '/img/gallery/0910_01.webp', openDate: '2026-09-10 18:00:00', initiallyBlurred: false },
-  { id: 'g6', src: '/img/gallery/0911_01.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: false },
-  { id: 'g7', src: '/img/gallery/0911_01_blur.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
-  { id: 'g8', src: '/img/gallery/0911_02_blur.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
+  { id: 'g1', src: '/img/gallery/g1.webp', openDate: '2026-09-08 18:00:00', initiallyBlurred: false },
+  { id: 'g2', src: '/img/gallery/g2.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: false },
+  { id: 'g3', src: '/img/gallery/g3.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
+  { id: 'g4', src: '/img/gallery/g4.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
+  { id: 'g5', src: '/img/gallery/g5.webp', openDate: '2026-09-10 18:00:00', initiallyBlurred: false },
+  { id: 'g6', src: '/img/gallery/g6.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: false },
+  { id: 'g7', src: '/img/gallery/g7.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
+  { id: 'g8', src: '/img/gallery/g8.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
 ]
 
 export function isGalleryPhotoVisible(photo: GalleryPhoto, now: number): boolean {
@@ -27,12 +27,15 @@ export function isGalleryPhotoVisible(photo: GalleryPhoto, now: number): boolean
 }
 
 /**
- * openDate가 지난 사진만, openDate가 최신인 순서로(오래된 사진일수록 뒤로) 반환한다. 같은
- * openDate끼리는 GALLERY_PHOTOS에 적어둔 순서를 그대로 유지한다(Array#sort는 안정 정렬).
+ * openDate가 지난 사진만 공개 날짜가 최신인 순서로 반환한다.
+ * 같은 날짜 안에서는 선명한 사진을 먼저, 블러 사진을 뒤에 배치하고,
+ * 블러 여부도 같으면 GALLERY_PHOTOS에 적어둔 순서를 유지한다.
  * 시각을 넘기지 않으면 호출 시점(Date.now())을 기준으로 삼는다.
  */
 export function getVisibleGalleryPhotos(now: number = Date.now()): GalleryPhoto[] {
-  return GALLERY_PHOTOS.filter((photo) => isGalleryPhotoVisible(photo, now)).sort(
-    (a, b) => parseAsKst(b.openDate).getTime() - parseAsKst(a.openDate).getTime(),
-  )
+  return GALLERY_PHOTOS.filter((photo) => isGalleryPhotoVisible(photo, now)).sort((a, b) => {
+    const dateDifference = parseAsKst(b.openDate).getTime() - parseAsKst(a.openDate).getTime()
+    if (dateDifference !== 0) return dateDifference
+    return Number(a.initiallyBlurred) - Number(b.initiallyBlurred)
+  })
 }
