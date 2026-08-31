@@ -24,12 +24,12 @@ const TEST_DATE = '2026-08-26 13:10:00'
 
 // 페이지 안에서 날짜 기준으로 텍스트/링크가 바뀌는 지점들을 한곳에서 관리.
 const RELEASE_DATES = {
-  epAnnounce: '2026-09-03 00:00:00', // "SORAN EP [Layer]" 문구 공개
-  releaseDate: '2026-09-01 00:00:00', // "2026.09.18" 발매일 텍스트 공개
-  album: '2026-09-13 00:00:00', // 앨범 소개 링크 활성화
-  moodFilm: '2026-09-13 00:00:00', // 무드필름 링크 활성화
-  gallery: '2026-09-13 00:00:00', // 갤러리 링크 활성화
-  lyrics: '2026-09-16 00:00:00', // 가사게임 링크 활성화
+  epAnnounce: '2026-09-03 18:00:00', // "SORAN EP [Layer]" 문구 공개
+  releaseDate: '2026-09-01 18:00:00', // "2026.09.18" 발매일 텍스트 공개
+  album: '2026-09-03 18:00:00', // 앨범 소개 링크 활성화
+  moodFilm: '2026-09-03 18:00:00', // 무드필름 링크 활성화
+  gallery: '2026-09-08 18:00:00', // 갤러리 링크 활성화
+  lyrics: '2026-09-16 18:00:00', // 가사게임 링크 활성화
 } as const satisfies Record<string, string>
 
 function releaseDate(key: keyof typeof RELEASE_DATES) {

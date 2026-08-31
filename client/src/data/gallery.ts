@@ -3,21 +3,21 @@ import { parseAsKst } from '@/components/lib/kstDate'
 export interface GalleryPhoto {
   id: string
   src: string
-  /** ISO date — 이 날짜부터 캐러셀에 노출 (타임존 표기 없으면 KST로 간주) */
+  /** ISO date(-time) — 이 시각부터 캐러셀에 노출 (타임존 표기 없으면 KST로 간주) */
   openDate: string
   /** true면 처음엔 블러 처리되어 있고, 문질러야 선명해짐 (미공개 컷) */
   initiallyBlurred: boolean
 }
 
 export const GALLERY_PHOTOS: GalleryPhoto[] = [
-  { id: 'g1', src: '/img/gallery/0908_01.webp', openDate: '2026-09-08', initiallyBlurred: false },
-  { id: 'g2', src: '/img/gallery/0909_01.webp', openDate: '2026-09-09', initiallyBlurred: false },
-  { id: 'g3', src: '/img/gallery/0909_01_blur.webp', openDate: '2026-09-09', initiallyBlurred: true },
-  { id: 'g4', src: '/img/gallery/0909_02_blur.webp', openDate: '2026-09-09', initiallyBlurred: true },
-  { id: 'g5', src: '/img/gallery/0910_01.webp', openDate: '2026-09-10', initiallyBlurred: false },
-  { id: 'g6', src: '/img/gallery/0911_01.webp', openDate: '2026-09-11', initiallyBlurred: false },
-  { id: 'g7', src: '/img/gallery/0911_01_blur.webp', openDate: '2026-09-11', initiallyBlurred: true },
-  { id: 'g8', src: '/img/gallery/0911_02_blur.webp', openDate: '2026-09-11', initiallyBlurred: true },
+  { id: 'g1', src: '/img/gallery/0908_01.webp', openDate: '2026-09-08 18:00:00', initiallyBlurred: false },
+  { id: 'g2', src: '/img/gallery/0909_01.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: false },
+  { id: 'g3', src: '/img/gallery/0909_01_blur.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
+  { id: 'g4', src: '/img/gallery/0909_02_blur.webp', openDate: '2026-09-09 18:00:00', initiallyBlurred: true },
+  { id: 'g5', src: '/img/gallery/0910_01.webp', openDate: '2026-09-10 18:00:00', initiallyBlurred: false },
+  { id: 'g6', src: '/img/gallery/0911_01.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: false },
+  { id: 'g7', src: '/img/gallery/0911_01_blur.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
+  { id: 'g8', src: '/img/gallery/0911_02_blur.webp', openDate: '2026-09-11 18:00:00', initiallyBlurred: true },
 ]
 
 export function isGalleryPhotoVisible(photo: GalleryPhoto, now: number): boolean {
