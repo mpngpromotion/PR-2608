@@ -28,7 +28,7 @@ export function isGalleryPhotoVisible(photo: GalleryPhoto, now: number): boolean
 
 /**
  * openDate가 지난 사진만 공개 날짜가 최신인 순서로 반환한다.
- * 같은 날짜 안에서는 선명한 사진을 먼저, 블러 사진을 뒤에 배치하고,
+ * 같은 날짜 안에서는 블러 사진을 먼저, 선명한 사진을 뒤에 배치하고,
  * 블러 여부도 같으면 GALLERY_PHOTOS에 적어둔 순서를 유지한다.
  * 시각을 넘기지 않으면 호출 시점(Date.now())을 기준으로 삼는다.
  */
@@ -36,6 +36,6 @@ export function getVisibleGalleryPhotos(now: number = Date.now()): GalleryPhoto[
   return GALLERY_PHOTOS.filter((photo) => isGalleryPhotoVisible(photo, now)).sort((a, b) => {
     const dateDifference = parseAsKst(b.openDate).getTime() - parseAsKst(a.openDate).getTime()
     if (dateDifference !== 0) return dateDifference
-    return Number(a.initiallyBlurred) - Number(b.initiallyBlurred)
+    return Number(b.initiallyBlurred) - Number(a.initiallyBlurred)
   })
 }
