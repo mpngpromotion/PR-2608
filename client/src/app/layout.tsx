@@ -1,7 +1,6 @@
-import { Suspense } from 'react'
 import type { Metadata, Viewport } from 'next'
 import { APP_INFO } from '@/config'
-import { Layout, GoogleAnalyticsPageView } from '@/components'
+import { Layout } from '@/components'
 import { GoogleAnalytics } from '@next/third-parties/google'
 
 import '@/styles/globals.css'
@@ -25,9 +24,6 @@ export default function RootLayout({
       <body>
         <Layout>{children}</Layout>
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ''} />
-        <Suspense fallback={null}>
-          <GoogleAnalyticsPageView />
-        </Suspense>
       </body>
     </html>
   )
