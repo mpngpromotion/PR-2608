@@ -19,7 +19,7 @@ import Link from 'next/link'
 
 // true로 켜두면 아래 RELEASE_DATES 대신 TEST_DATE 하나가 모든 날짜 게이팅에 일괄 적용된다.
 // 실제 배포 전엔 반드시 false로 되돌릴 것.
-const IS_TEST = false
+const IS_TEST = true
 const TEST_DATE = '2026-08-26 13:10:00'
 
 // 페이지 안에서 날짜 기준으로 텍스트/링크가 바뀌는 지점들을 한곳에서 관리.
@@ -29,7 +29,7 @@ const RELEASE_DATES = {
   album: '2026-09-13 00:00:00', // 앨범 소개 링크 활성화
   moodFilm: '2026-09-13 00:00:00', // 무드필름 링크 활성화
   gallery: '2026-09-13 00:00:00', // 갤러리 링크 활성화
-  lyrics: '2026-09-13 00:00:00', // 가사게임 링크 활성화
+  lyrics: '2026-09-16 00:00:00', // 가사게임 링크 활성화
 } as const satisfies Record<string, string>
 
 function releaseDate(key: keyof typeof RELEASE_DATES) {
@@ -188,7 +188,7 @@ export default function Home() {
                         <button onClick={onClick} className='cursor-pointer'>
                           <Crossfade activeKey={isRevealing ? 'temp' : 'default'}>
                             {isRevealing ? (
-                              <span className='text-center'>2026.09.15 OPEN</span>
+                              <span className='text-center'>2026.09.16 OPEN</span>
                             ) : (
                               <img src='/img/icons/lyric.png' alt='가사 게임' />
                             )}

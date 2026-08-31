@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import classNames from 'classnames'
-import { FiMaximize, FiMinimize, FiPause, FiPlay, FiVolume2, FiVolumeX } from 'react-icons/fi'
+import { FiMaximize2, FiMinimize2, FiPause, FiPlay, FiVolume2, FiVolumeX } from 'react-icons/fi'
 import { LoadingSpinner } from './LoadingSpinner'
 
 // iOS Safari는 일반 엘리먼트의 표준 Fullscreen API를 지원하지 않고, <video> 자체에만 이
@@ -270,7 +270,7 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
         onMouseEnter={revealControls}
         onMouseMove={revealControls}
         className={classNames(
-          'absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 text-xs text-white mix-blend-difference font-mono transition-opacity duration-500',
+          'absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 text-[10px] text-white mix-blend-difference font-mono transition-opacity duration-500',
           showControls ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       >
@@ -290,10 +290,19 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
         <button type='button' onClick={toggleMuted} className='shrink-0'>
           {isMuted ? <FiVolumeX size={16} /> : <FiVolume2 size={16} />}
         </button>
-        <button type='button' onClick={toggleFullscreen} className='shrink-0'>
-          {isFullscreen ? <FiMinimize size={16} /> : <FiMaximize size={16} />}
-        </button>
       </div>
+      <button
+        type='button'
+        onMouseEnter={revealControls}
+        onMouseMove={revealControls}
+        onClick={toggleFullscreen}
+        className={classNames(
+          'absolute top-2 right-2 text-white mix-blend-difference font-mono text-[10px] transition-opacity duration-500',
+          showControls ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        {isFullscreen ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+      </button>
     </div>
   )
 }
