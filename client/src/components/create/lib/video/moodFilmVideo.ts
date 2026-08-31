@@ -266,8 +266,9 @@ function getExportSettings() {
   const lowCpu = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4
   const constrained = isMobile || lowMemory || lowCpu
 
-  if (constrained) return { width: 810, height: 1080, bitrate: 6_000_000 }
-  return { width: 1080, height: 1440, bitrate: 12_000_000 }
+  // 사진이 대부분 정지해있는 콘텐츠라 비트레이트를 살짝만 낮춰도 화질 체감 차이는 거의 없다.
+  if (constrained) return { width: 810, height: 1080, bitrate: 5_000_000 }
+  return { width: 1080, height: 1440, bitrate: 9_000_000 }
 }
 
 let aacEncoderRegistered = false
