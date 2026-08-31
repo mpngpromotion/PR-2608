@@ -241,6 +241,8 @@ export async function exportMoodFilmVideo({
       // 화질보다 인코딩 속도를 우선한다 — 프레임 타이밍/개수는 안 바뀌니 카카오톡 공유
       // 호환성엔 영향 없다.
       latencyMode: 'realtime',
+      // 가능한 기기에서는 소프트웨어 인코더 대신 H.264 하드웨어 인코더를 우선한다.
+      hardwareAcceleration: 'prefer-hardware',
     })
     output.addVideoTrack(videoSource, { frameRate: FPS })
 
@@ -253,12 +255,18 @@ export async function exportMoodFilmVideo({
     await output.start()
 
     const totalFrames = Math.ceil(DURATION * FPS)
+    const layerStartFrames = new Set(layers.map((layer) => layer.start))
 
     const videoJob = (async () => {
       for (let frame = 0; frame < totalFrames; frame++) {
         if (signal?.aborted) return
         const time = frame / FPS
-        drawFrame(ctx, images, time, width, height, color, typographyOverlay)
+        // 실제 화면은 사진이 한 장씩 추가되는 시점에만 바뀐다. 캔버스는 그 12개
+        // 프레임에서만 다시 그리고, MP4에는 기존처럼 1/30초짜리 프레임 633개를 모두
+        // 넣는다. 따라서 렌더링 비용은 줄지만 CFR 타임라인과 카카오톡 호환성은 유지된다.
+        if (layerStartFrames.has(frame)) {
+          drawFrame(ctx, images, time, width, height, color, typographyOverlay)
+        }
         // 키프레임 시점은 강제로 정하지 않고 인코더 기본 간격(2초)에 맡긴다 — 1초마다
         // 강제하던 것보다 I-frame이 덜 나와서 더 빠르다.
         await videoSource.add(time, 1 / FPS)
