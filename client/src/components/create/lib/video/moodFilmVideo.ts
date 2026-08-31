@@ -36,12 +36,11 @@ export type MoodFilmLayer = (typeof layers)[number]
 // 레이어 좌표 수동 튜닝용 디버그 페이지(mood-film/layer-test)에서 원본 값을 읽어가는 용도.
 export const MOOD_FILM_LAYERS: MoodFilmLayer[] = layers
 
-// 사진이 새로 나타나는 시점(12번)에만 화면이 바뀌고 그 사이엔 완전히 정지해있다. 매 프레임
-// (634개)을 다 인코딩하는 대신 바뀌는 시점마다 한 장만 그려서, 다음 시점까지의 구간 전체를
-// 그 한 프레임(긴 duration)으로 채운다 — 화면에 보이는 결과는 프레임 단위로 쪼갠 것과 완전히
-// 같으면서, 실제 인코딩 호출 수(제일 느린 부분)는 634번 → 12번으로 줄어든다.
-const segmentStarts = [...new Set(layers.map((layer) => layer.startSec))].sort((a, b) => a - b)
-export const MOOD_FILM_LAYER_START_TIMES = segmentStarts
+// 사진이 새로 나타나는 시점들(디자인 미리보기 페이지에서 "N장 등장" 버튼으로 바로 점프할 때 씀).
+// 예전엔 이 시점 기준으로 인코딩 호출 자체를 줄이는 최적화도 했었는데, 프레임 하나가 몇 초씩
+// 지속되는 "비정상"적인 구조가 되면서 카카오톡 공유 시 파일이 거부돼서 되돌렸다 — 지금은
+// exportMoodFilmVideo가 다시 매 프레임(1/30초 균일 duration)을 전부 인코딩한다.
+export const MOOD_FILM_LAYER_START_TIMES = [...new Set(layers.map((layer) => layer.startSec))].sort((a, b) => a - b)
 
 const TYPOGRAPHY_FONT_FAMILY = 'Sofia Sans Condensed'
 const TYPOGRAPHY_FONT_URL = '/fonts/SofiaSans-Variable.ttf'
@@ -344,14 +343,15 @@ export async function exportMoodFilmVideo({
 
     await output.start()
 
+    const totalFrames = Math.ceil(DURATION * FPS)
+
     const videoJob = (async () => {
-      for (let i = 0; i < segmentStarts.length; i++) {
+      for (let frame = 0; frame < totalFrames; frame++) {
         if (signal?.aborted) return
-        const time = segmentStarts[i]
-        const nextTime = i + 1 < segmentStarts.length ? segmentStarts[i + 1] : DURATION
+        const time = frame / FPS
         drawFrame(ctx, images, time, width, height, color)
-        await videoSource.add(time, nextTime - time, { keyFrame: true })
-        onProgress?.((i + 1) / segmentStarts.length)
+        await videoSource.add(time, 1 / FPS, { keyFrame: frame % FPS === 0 })
+        onProgress?.((frame + 1) / totalFrames)
       }
       videoSource.close()
     })()
