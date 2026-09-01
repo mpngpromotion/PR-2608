@@ -2,8 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import classNames from 'classnames'
-import { FiPause, FiPlay, FiVolume2, FiVolumeX } from 'react-icons/fi'
+import { FiMaximize2, FiMinimize2, FiPause, FiPlay, FiVolume2, FiVolumeX } from 'react-icons/fi'
 import { LoadingSpinner } from './LoadingSpinner'
+
+// iOS Safari는 일반 엘리먼트의 표준 Fullscreen API를 지원하지 않고, <video> 자체에만 이
+// 비표준 메서드로 전체화면을 지원한다.
+interface IOSFullscreenVideoElement extends HTMLVideoElement {
+  webkitEnterFullscreen?: () => void
+}
 
 // 재생 중 이 시간(ms) 동안 손을 안 대면 컨트롤(재생/멈춤·재생바·음소거)이 투명해진다.
 const CONTROLS_HIDE_DELAY = 2500
@@ -35,6 +41,7 @@ function formatTime(seconds: number) {
 // 필요 없어서, react-player 없이 순수 <video>를 직접 다룬다 — ref로 진짜 seek이 가능해진다.
 // 브라우저 네이티브 컨트롤/전체화면 전환 없이 재생/멈춤·재생바(seek 포함)·음소거만 지원한다.
 export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, className }: VideoPlayerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
 
@@ -47,6 +54,7 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isBuffering, setIsBuffering] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   // 실제 재생 가능한(canplay) 상태가 되기 전까진 재생/멈춤을 못 누르게 막는다 — 로딩 도중에
   // 토글이 여러 번 겹치면 재생 시간이 꼬이는 문제가 있었다.
   const [isReady, setIsReady] = useState(false)
@@ -68,6 +76,32 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
     const timer = setTimeout(() => setShowControls(false), CONTROLS_HIDE_DELAY)
     return () => clearTimeout(timer)
   }, [isPlaying, isSeeking, showControls])
+
+  // 전체화면은 ESC나 브라우저 자체 UI로도 빠져나갈 수 있어서, 버튼 상태가 아니라 이 이벤트로
+  // 실제 전체화면 여부를 동기화한다.
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  const toggleFullscreen = async (event: React.SyntheticEvent) => {
+    event.stopPropagation()
+    revealControls()
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+      return
+    }
+
+    try {
+      await containerRef.current?.requestFullscreen()
+    } catch {
+      // iOS Safari는 일반 엘리먼트의 전체화면을 지원하지 않아서, video 자체의 네이티브
+      // 전체화면(자체 컨트롤 포함)으로 대신 넘어간다.
+      ;(videoRef.current as IOSFullscreenVideoElement | null)?.webkitEnterFullscreen?.()
+    }
+  }
 
   const revealControls = () => setShowControls(true)
 
@@ -129,7 +163,16 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
   const progress = duration > 0 ? currentTime / duration : 0
 
   return (
-    <div className={classNames('relative aspect-3/4 bg-white', className)}>
+    <div
+      ref={containerRef}
+      className={classNames(
+        'relative bg-white',
+        // 전체화면에 들어가면 브라우저가 이 엘리먼트를 화면 전체로 늘리는데, aspect-3/4가
+        // 그 크기를 도로 3:4 박스로 좁혀버려서 전체화면 중엔 꺼둔다.
+        isFullscreen ? 'h-full w-full' : 'aspect-3/4',
+        className,
+      )}
+    >
       {/* thumbnailUrl을 안 주면 화면 밖에서 첫 프레임을 직접 캡처해서 포스터로 쓴다.
           preload="auto"만으론 iOS Safari 등 상당수 모바일 브라우저가 재생 전 프레임을 안 그려준다.
           display:none으로 숨기면 iOS Safari가 로드 자체를 안 해줄 때가 있어서, 화면 밖으로
@@ -227,7 +270,7 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
         onMouseEnter={revealControls}
         onMouseMove={revealControls}
         className={classNames(
-          'absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 text-xs text-white mix-blend-difference font-mono transition-opacity duration-500',
+          'absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 text-[10px] text-white mix-blend-difference font-mono transition-opacity duration-500',
           showControls ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       >
@@ -248,6 +291,18 @@ export function VideoPlayer({ src, thumbnailUrl, autoPlay, muted, onEnded, class
           {isMuted ? <FiVolumeX size={16} /> : <FiVolume2 size={16} />}
         </button>
       </div>
+      <button
+        type='button'
+        onMouseEnter={revealControls}
+        onMouseMove={revealControls}
+        onClick={toggleFullscreen}
+        className={classNames(
+          'absolute top-2 right-2 text-white mix-blend-difference font-mono text-[10px] transition-opacity duration-500',
+          showControls ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        {isFullscreen ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+      </button>
     </div>
   )
 }

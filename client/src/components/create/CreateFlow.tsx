@@ -16,15 +16,14 @@ import classNames from 'classnames'
 import { commonTransition } from '@/theme/transition'
 
 // mood-film 페이지의 전체 흐름을 여기 하나로 모아둔다.
-// 화면 전환(URL과 동기화되는 큰 단계)은 예시 영상 재생 → 인트로 → 완료, 3개뿐이다.
+// 화면 전환(URL과 동기화되는 큰 단계)은 인트로 → 완료, 2개뿐이다.
 // 이름 입력/사진 선택/생성은 IntroGather 안에서 자체적으로 관리하는 하위 단계라 여기선 모른다
-// (뒤로가기는 watching/intro/done 단위로만 동작).
-const EXAMPLE_VIDEO_SRC = '/video/moodfilm.mp4'
-type Step = 'watching' | 'intro' | 'done'
+// (뒤로가기는 intro/done 단위로만 동작).
+type Step = 'intro' | 'done'
 type ShareStatus = 'idle' | 'sharing'
 
 function isStep(value: string | null): value is Step {
-  return value === 'watching' || value === 'intro' || value === 'done'
+  return value === 'intro' || value === 'done'
 }
 
 // 단계 전환 시 세로로 살짝 밀리면서 페이드인/아웃.
@@ -41,7 +40,7 @@ export function CreateFlow() {
   const searchParams = useSearchParams()
   // 현재 단계는 URL의 ?step= 쿼리가 정답이다. 뒤로가기/앞으로가기로 쿼리가 바뀌면 이 값도 같이 바뀐다.
   const stepParam = searchParams.get('step')
-  const step: Step = isStep(stepParam) ? stepParam : 'watching'
+  const step: Step = isStep(stepParam) ? stepParam : 'intro'
 
   // "다시 만들기"를 누르면 IntroGather를 완전히 새로 마운트해서(사각형이 다시 흩어지고, 이름/사진
   // 입력도 초기화되게) 이 값을 올린다.
@@ -70,7 +69,7 @@ export function CreateFlow() {
   // SNS 공유 시 같이 실리는 문구. 링크를 넣어서 공유받은 사람도 직접 만들어볼 수 있게 한다.
   const buildShareText = () => {
     const siteUrl = typeof window !== 'undefined' ? `${window.location.origin}` : ''
-    return `${name || '무드필름'}의 Layer가 공유되었습니다.\n\nSORAN의 Layer 웹사이트에서 무드필름을 만들어보세요!\n\n${siteUrl}`
+    return `${name || '무드필름'}의 Layer가 공유되었습니다.\nlayerbySORAN에서 나만의 Layer를 만들어보세요!\n\n${siteUrl}`
   }
 
   const handleShareVideo = async () => {
@@ -88,7 +87,7 @@ export function CreateFlow() {
     } catch (error) {
       // 사용자가 공유 시트를 취소한 경우(AbortError)는 정상 흐름이라 조용히 넘어간다.
       if (error instanceof Error && error.name !== 'AbortError') {
-        alert(`공유에 실패했어요.\n${error.name}: ${error.message}`)
+        alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
       }
     } finally {
       setShareStatus('idle')
@@ -115,7 +114,7 @@ export function CreateFlow() {
       await navigator.share({ files: [file], text: buildShareText() })
     } catch (error) {
       if (error instanceof Error && error.name !== 'AbortError') {
-        alert(`공유에 실패했어요.\n${error.name}: ${error.message}`)
+        alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
       }
     } finally {
       setShareStatus('idle')
@@ -126,28 +125,8 @@ export function CreateFlow() {
     // 각 단계는 세로로 살짝 밀리면서 페이드인/아웃 — mode='wait'라 이전 단계가 다 사라진
     // 뒤에야 다음 단계가 나타난다 (겹쳐서 번쩍이지 않는다).
     <AnimatePresence mode='wait'>
-      {step === 'watching' && (
-        <motion.div
-          key='watching'
-          {...STEP_TRANSITION}
-          className='w-full h-dvh  flex flex-col justify-start items-center gap-8 py-10 text-center'
-        >
-          <Header />
-          {/* min-h-0가 없으면 flex 아이템은 콘텐츠(영상) 크기 이하로 안 줄어들어서 h-dvh를 넘겨버린다.
-              VideoPlayer는 가로(w-full) 대신 세로(h-full) 기준으로 크기를 잡아서, 남는 세로 공간만큼만
-              차지하고 그만큼 자동으로 작아진다. */}
-          <div className='flex min-h-0 w-full flex-1 items-center justify-center p-8'>
-            <VideoPlayer
-              src={EXAMPLE_VIDEO_SRC}
-              onEnded={() => goToStep('intro')}
-              className='h-full w-auto max-w-full shadow-lg'
-            />
-          </div>
-        </motion.div>
-      )}
-
       {step === 'intro' && (
-        <motion.div key='intro' {...STEP_TRANSITION} className='w-full  h-dvh'>
+        <motion.div key='intro' {...STEP_TRANSITION} className='w-full h-dvh'>
           <IntroGather
             key={introKey}
             onDone={(result, submittedName) => {
@@ -161,9 +140,9 @@ export function CreateFlow() {
 
       {step === 'done' && (
         <motion.div key='done' {...STEP_TRANSITION} className='w-full h-dvh  flex flex-col items-center text-center'>
-          <div className='h-fit shrink-0  flex w-screen! flex-col items-center break-keep justify-center gap-4 px-10 pt-8 pb-6 text-base bg-black/30 text-white'>
-            <Header className='' />
-            <span className='w-fit h-fit'>{name ? `${name}` : '무드필름'}의 Layer가 완성되었습니다.</span>
+          <div className='h-fit shrink-0  flex w-screen! flex-col items-center break-keep justify-center gap-4 pt-8 pb-6 text-base bg-black/30 text-white'>
+            <Header className='' isBlack={true} />
+            <span className='w-fit h-fit '>{name ? `${name}` : '무드필름'}의 Layer가 완성되었습니다.</span>
           </div>
 
           {/* h-full은 "부모 전체 높이의 100%"라 헤더/버튼 블록 높이까지 더해지면 h-dvh를 넘긴다.
@@ -189,7 +168,6 @@ export function CreateFlow() {
               <p className='text-sm opacity-60'>영상을 만들지 못했어요. 사진 형식을 확인해주세요.</p>
             )}
           </div>
-
           <div className='h-fit shrink-0  flex w-screen! flex-col items-center justify-center gap-6 px-10 pb-6 pt-6 bg-black/30 text-white'>
             <div className='flex flex-wrap justify-center gap-2'>
               {video && (

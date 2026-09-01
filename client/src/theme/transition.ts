@@ -4,5 +4,5 @@
 // 실제로 쓰는 효과(scale/brightness/contrast/saturate)는 transform과 filter뿐이라
 // opacity는 트랜지션 대상에서 아예 빼도 된다.
 const commonTransition =
-  'transition-[transform,filter] ease-in-out duration-200 hover:scale-110 hover:brightness-125 hover:contrast-125 hover:saturate-150 !cursor-pointer active:scale-95 active:brightness-90 active:contrast-90 active:saturate-90'
+  'transition-[transform,filter] ease-in-out duration-200 hover:scale-110  hover:contrast-110 hover:saturate-120 !cursor-pointer active:scale-95 active:contrast-90 active:saturate-90'
 export { commonTransition }

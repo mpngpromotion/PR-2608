@@ -31,8 +31,8 @@ export function CarouselNavButton({ side, label, src, disabled, onClick }: Carou
         opacity: disabled ? 0.4 : 0.8,
         transform: `translateY(-50%) scale(${isPressed ? 0.85 : 1})`,
       }}
-      className={`absolute top-1/2 z-10 bg-transparent p-0 transition-[transform,opacity] duration-150 disabled:pointer-events-none cursor-pointer ${
-        side === 'left' ? 'left-5' : 'right-5'
+      className={`absolute top-1/2 z-10 bg-transparent px-4 py-8 transition-[transform,opacity] duration-150 disabled:pointer-events-none cursor-pointer ${
+        side === 'left' ? 'left-0' : 'right-0'
       }`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
