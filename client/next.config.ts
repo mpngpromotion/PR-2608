@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  allowedDevOrigins: ['192.168.45.107'],
+  allowedDevOrigins: ['192.168.45.101'],
   turbopack: {
     rules: {
       '*.svg': {

@@ -20,8 +20,8 @@ export default function AlbumPage() {
   }
 
   const opts: YouTubeProps['opts'] = {
-    height: '390',
-    width: '640',
+    height: '1080',
+    width: '1440',
     host: 'https://www.youtube-nocookie.com', // 프라이버시 강화 모드 (콘솔의 광고 전환추적 CORS 에러 완화 목적)
     playerVars: {
       // https://developers.google.com/youtube/player_parameters
@@ -57,9 +57,9 @@ export default function AlbumPage() {
         </FadeInView>
         <FadeInView className='w-full flex justify-center items-center' delay={0.1}>
           <YouTube
-            videoId='2NyfVo89JRA'
-            className={'w-full h-fit'} // defaults -> ''
-            iframeClassName={'w-full h-auto aspect-3/4'} // defaults -> ''
+            videoId='Q8PD6Ew1seo'
+            className={'max-w-md w-full h-fit pb-6'} // defaults -> ''
+            iframeClassName={'w-full h-auto aspect-3/4 shadow-md'} // defaults -> ''
             loading={undefined} // defaults -> undefined
             opts={opts}
             onReady={onPlayerReady}
