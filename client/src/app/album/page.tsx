@@ -54,7 +54,7 @@ export default function AlbumPage() {
             <p>소란(SORAN) EP [Layer]</p>
           </div>
         </FadeInView>
-        <FadeInView className='w-full flex justify-center items-center pb-5' delay={0.1}>
+        <FadeInView className='w-full flex justify-center items-center' delay={0.1}>
           <YouTube
             videoId='Q8PD6Ew1seo'
             className={'max-w-md w-full h-fit pb-6'} // defaults -> ''
