@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react'
 
-const ENABLE_SCHEDULED_LANDING = true
+const ENABLE_SCHEDULED_LANDING = false
 const LANDING_ENDS_AT = new Date('2026-09-01T17:30:00+09:00').getTime()
 
 interface LayoutProps {
