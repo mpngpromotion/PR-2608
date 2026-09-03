@@ -47,7 +47,6 @@ export default function AlbumPage() {
           <div className='flex-1'>
             <p>겹겹이 쌓인 사과 다섯알 입니다.</p>
             <p>모아보니 서로 다르고 또 같아서 즐겁습니다.</p>
-            <br />
             <p>떠올리면 행복해지는 앨범으로 오래 남기를.</p>
           </div>
           <br />
