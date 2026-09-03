@@ -31,15 +31,15 @@ const day1Segments = lyricsData.segments.slice(lyricsData.day1Range.start, lyric
 // 직접 진입/새로고침 시 렌더되는 단독 풀페이지 (인트로 없이).
 export default function LyricsPage() {
   return (
-    <div className='w-full h-dvh flex flex-col justify-start items-center gap-5 pt-10 pb-5 text-center'>
+    <div className='w-full h-dvh flex flex-col justify-start items-center pt-8 pb-5 text-center'>
       <FadeInView className='w-full'>
         <Header />
       </FadeInView>
-      <FadeInView className='w-full h-full flex flex-col justify-center items-center' delay={0.1}>
+      <FadeInView className='w-full h-full flex flex-col justify-center items-center pt-3' delay={0.1}>
         <LyricsGameGate allSegments={lyricsData.segments} day1Segments={day1Segments} audioSrc={AUDIO_SRC} />
       </FadeInView>
       {/* 소셜 미디어 링크 */}
-      <FadeInView className='w-full h-fit flex flex-row items-center justify-center gap-4 '>
+      <FadeInView className='w-full h-fit flex flex-row items-center justify-center gap-4 pt-5'>
         {SOCIAL_SITES.map((site) => (
           <div key={site.name} className={classNames('w-[32px] h-[32px]', site.name === 'x' ? '-ml-1' : '')}>
             <Link href={site.link} target='_blank' rel='noopener noreferrer'>

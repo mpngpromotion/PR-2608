@@ -33,9 +33,11 @@ type StackedWord = {
 const STACK_FONT = "12px 'Sandoll DanpyunsunB', sans-serif"
 const WORD_PADDING_X = 14
 const WORD_HEIGHT = 24
-// 정타 판정 → 인풋 글자에 색이 입혀진 채 잠깐 머무름 → 인풋에서 사라짐과 동시에 그 색을 가진
-// 채로 낙하 시작, 순서로 보여주기 위한 대기 시간.
-const MATCH_HOLD_MS = 280
+// 정타 판정 → 인풋 글자에 색이 입혀진 채 아주 잠깐 보임 → 인풋에서 사라짐과 동시에 그 색을
+// 가진 채로 낙하 시작, 순서를 위한 대기 시간. 색이 눈에 띄되 "기다린다"는 느낌은 없게 짧게.
+const MATCH_HOLD_MS = 120
+// 마지막 구간의 개별 사운드가 다 끝난 뒤, 전체 흐름 재생 전에 살짝 두는 숨 고르는 시간.
+const REPLAY_BUFFER_MS = 400
 
 // 타이틀곡 원곡 하나를 통째로 디코딩해두고, 정타 시 구간(start~end)만 잘라 재생한다.
 // <audio> currentTime seek 대신 Web Audio API를 쓰는 이유: 아주 짧은 구간을 촘촘히 이어
@@ -49,19 +51,20 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   const [loadProgress, setLoadProgress] = useState(0)
   // 정타 판정 직후 ~ 실제로 인풋을 비우고 낙하시키기 전까지, 인풋 글자에 입혀둘 색.
   const [matchedColor, setMatchedColor] = useState<StackColor | null>(null)
+  // 마지막 구간 완료 후 전체 흐름 재생까지 몇 초 남았는지(초 단위, 카운트다운 표시용).
+  const [replayCountdown, setReplayCountdown] = useState<number | null>(null)
+  // 전체 흐름 재생 중, 지금 재생되고 있는 지점이 어느 구간인지(그 구간의 가사 텍스트). null이면
+  // 전체 재생 중이 아니라는 뜻도 겸한다.
+  const [replayCurrentText, setReplayCurrentText] = useState<string | null>(null)
   // 정타마다 값이 바뀐다 — <input>의 key로 써서 구간이 넘어갈 때마다 인풋 DOM 노드를 통째로
   // 새로 만든다. 이전 노드에 남아있을 수 있는 IME 조합 버퍼나, 그 노드를 향해 아직 날아오고
   // 있는 트레일링 이벤트를 텍스트 비교 같은 걸로 하나하나 걸러내지 않고 통째로 무효화한다.
   const [inputGen, setInputGen] = useState(0)
-  // 모바일 키보드가 올라오면 그만큼 바닥 영역이 가려진다. visualViewport로 키보드가 가린
-  // 높이(inset)를 감지해서 바닥 컨테이너의 bottom을 그만큼 띄워 보이게 한다.
-  const [keyboardInset, setKeyboardInset] = useState(0)
 
   const audioCtxRef = useRef<AudioContext | null>(null)
   const bufferRef = useRef<AudioBuffer | null>(null)
   const gainRef = useRef<GainNode | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const composingRef = useRef(false)
   // 지금 맞춰야 할 구간을 React state(index)가 아니라 ref로도 따로 들고 있는다. 한글 IME는
   // compositionend 직후 브라우저가 트레일링 input 이벤트를 한 번 더 보낼 때가 있는데, 이게
   // React가 리렌더로 handleChange를 최신 index로 교체하기 *전에* 오는 경우 이전 index를 보던
@@ -84,13 +87,6 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   const bodiesRef = useRef<Map<string, Matter.Body>>(new Map())
   const elementsRef = useRef<Map<string, HTMLSpanElement>>(new Map())
   const rafRef = useRef<number | null>(null)
-  const keyboardInsetRef = useRef(0)
-  // 키보드가 없을 때 바닥 컨테이너의 실제 하단 y좌표(뷰포트 기준). 바닥 아래에는 소셜 아이콘
-  // 푸터/패딩이 더 있어서 바닥의 "원래 하단"은 페이지 전체의 바닥보다 한참 위에 있다 — 그래서
-  // 페이지 전체 기준으로 키보드가 가린 높이를 그대로 밀어올리면 이미 안 가려지는 부분까지
-  // 같이 밀어올려서 필요 이상으로 높이 튀는 문제가 있었다. 바닥 자신의 원래 위치를 기준으로
-  // 삼아야 정확히 "실제로 가려지는 만큼만" 밀어올릴 수 있다.
-  const floorNaturalBottomRef = useRef<number | null>(null)
 
   useEffect(() => {
     const ctx = audioCtxRef.current
@@ -99,52 +95,18 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     gain.gain.setValueAtTime(muted ? 0 : 1, ctx.currentTime)
   }, [muted])
 
-  // 바닥(ground/walls)과 이미 쌓인 가사들을 통째로 delta만큼 위/아래로 옮긴다. 다시 중력으로
-  // 떨어뜨려 재정렬하는 게 아니라 좌표계 자체를 살짝 미는 것이라, 키보드가 열리고 닫힐 때마다
-  // 이미 멈춰있던 파일이 다시 들썩이지 않는다.
-  const applyKeyboardInset = (inset: number) => {
-    const delta = inset - keyboardInsetRef.current
-    if (delta !== 0 && engineRef.current) {
-      Matter.Composite.translate(engineRef.current.world, { x: 0, y: -delta })
-    }
-    keyboardInsetRef.current = inset
-    setKeyboardInset(inset)
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return
-    // PC(마우스/트랙패드)에는 가상 키보드가 없다 — 브라우저 창을 세로로 줄이거나 Ctrl+휠로
-    // 확대/축소해도 visualViewport는 똑같이 줄어들어서, 이 로직을 데스크톱에도 그대로 붙이면
-    // 창 크기 변경/줌을 키보드로 오인해 바닥이 튀어 오른다. 주 입력 방식이 터치인 기기에서만 붙인다.
-    if (!window.matchMedia('(pointer: coarse)').matches) return
-    const vv = window.visualViewport
-    // 툴바 접힘 같은 사소한 높이 변화까지 키보드로 오인하지 않도록 어느 정도 큰 변화만 반영.
-    const KEYBOARD_THRESHOLD = 80
-    const handleResize = () => {
-      const baseline = floorNaturalBottomRef.current
-      if (baseline == null) return
-      // 바닥의 원래 하단이 지금 보이는 뷰포트 높이보다 아래에 있는 만큼만 = 실제로 키보드에
-      // 가려지는 만큼만 밀어올린다. body가 overflow:hidden이라 스크롤 오프셋은 신경 안 써도 된다.
-      const overlap = baseline - vv.height
-      applyKeyboardInset(overlap > KEYBOARD_THRESHOLD ? Math.round(overlap) : 0)
-    }
-    vv.addEventListener('resize', handleResize)
-    return () => vv.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    if (phase === 'playing' && floorRef.current && floorNaturalBottomRef.current == null) {
-      floorNaturalBottomRef.current = floorRef.current.getBoundingClientRect().bottom
-    }
-    if (phase === 'idle') floorNaturalBottomRef.current = null
-  }, [phase])
-
   useEffect(() => {
     return () => {
       audioCtxRef.current?.close()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (replayCountdown === null || replayCountdown <= 0) return
+    const t = window.setTimeout(() => setReplayCountdown((c) => (c ?? 1) - 1), 1000)
+    return () => window.clearTimeout(t)
+  }, [replayCountdown])
 
   const current = segments[index]
 
@@ -158,6 +120,32 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     source.buffer = buffer
     source.connect(gain)
     source.start(0, start, duration)
+  }
+
+  // 완성된 전체 구간을 재생하면서, 지금 재생 중인 지점이 어느 구간인지 그 가사를 계속 갱신해서
+  // 보여준다(카라오케처럼). AudioContext의 currentTime은 흐르는 실제 시간과 정확히 맞물려있어서
+  // setTimeout 누적 오차 없이 "재생 시작 후 몇 초 지났는지"를 정확히 알 수 있다. 자동으로
+  // 이어지는 재생과 "다시 듣기" 버튼 둘 다 이걸 써서 동작이 일관되게 한다.
+  const playFullReplay = (start: number, end: number) => {
+    playRange(start, end)
+    const ctx = audioCtxRef.current
+    const startedAtCtx = ctx?.currentTime ?? 0
+    const tick = () => {
+      const c = audioCtxRef.current
+      if (!c) return
+      const absoluteTime = start + (c.currentTime - startedAtCtx)
+      const seg = segments.find((s) => absoluteTime >= s.start && absoluteTime < s.end)
+      if (seg) setReplayCurrentText(seg.text)
+    }
+    tick()
+    const intervalId = window.setInterval(tick, 120)
+    window.setTimeout(
+      () => {
+        window.clearInterval(intervalId)
+        setReplayCurrentText(null)
+      },
+      (end - start) * 1000,
+    )
   }
 
   // 바닥+양옆 벽을 가진 물리 월드를 준비하고, 매 프레임 시뮬레이션 결과를 DOM에 직접 반영하는
@@ -219,8 +207,10 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     elementsRef.current.clear()
   }
 
-  // 정타 처리된 가사를 물리 바디로 만들어 화면 위쪽 밖에서 떨어뜨린다. 살짝 랜덤한 초기 각도와
-  // 회전/수평 속도를 줘야 바닥이나 다른 가사 위에 떨어질 때 자연스럽게 기울며 자리를 잡는다.
+  // 정타 처리된 가사를 물리 바디로 만들어 화면 위쪽 밖에서 떨어뜨린다. 스폰될 때 살짝 랜덤한
+  // 각도를 줘서 자연스러운 기울기를 만들되, inertia를 무한대로 고정해서 충돌해도 그 각도에서
+  // 더 회전하지 않게 한다 — 안 그러면 여러 개가 쌓이면서 부딪힐 때 뒤집히거나 옆으로 눕는
+  // 경우가 생겨서 글자가 거꾸로 쌓이는 것처럼 보였다.
   const dropWord = (text: string, key: string): { width: number; height: number } => {
     if (!measureCtxRef.current) {
       measureCtxRef.current = document.createElement('canvas').getContext('2d')
@@ -242,7 +232,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       frictionAir: 0.012,
       density: 0.0015,
     })
-    Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.12)
+    Matter.Body.setInertia(body, Infinity)
     Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 0 })
     Matter.World.add(engine.world, body)
     bodiesRef.current.set(key, body)
@@ -305,6 +295,8 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       justClearedTextRef.current = null
       setMatchedColor(null)
       isHoldingRef.current = false
+      setReplayCountdown(null)
+      setReplayCurrentText(null)
       setPhase('playing')
       requestAnimationFrame(() => inputRef.current?.focus())
     } catch (e) {
@@ -322,17 +314,19 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     activeSegmentRef.current = segments[0] ?? null
     setMatchedColor(null)
     isHoldingRef.current = false
+    setReplayCountdown(null)
+    setReplayCurrentText(null)
   }
 
-  // 정타 판정 → (색이 입혀진 채 인풋에 잠깐 머무름) → 인풋에서 사라짐과 동시에 그 색을 가진
-  // 채로 낙하 시작, 순서로 보여주려고 정타 처리를 두 단계로 나눴다. 오디오는 정타 즉시(반응성),
-  // 인풋 비우기·물리 낙하는 MATCH_HOLD_MS 뒤(연출)에 실행한다.
+  // 정타 판정 → 인풋 글자가 그 색으로 아주 잠깐(MATCH_HOLD_MS) 보였다가 → 인풋에서 사라짐과
+  // "동시에" 그 색을 가진 채로 낙하 시작 + 그 순간 소리 재생. 색이 눈에 보이긴 해야 하지만
+  // "기다린다"는 느낌은 없어야 해서 값을 짧게 잡았다. 소리를 여기(finalizeSegment)가 아니라
+  // commitSegment에서 정타 순간 바로 재생해버리면, 떨어지는 시점과 소리가 어긋나 보인다.
   const commitSegment = () => {
     const segment = activeSegmentRef.current
     if (!segment || isHoldingRef.current) return
     isHoldingRef.current = true
 
-    playRange(segment.start, segment.end)
     const color = STACK_COLORS[Math.floor(Math.random() * STACK_COLORS.length)]
     setMatchedColor(color)
 
@@ -340,6 +334,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   }
 
   const finalizeSegment = (segment: LyricsSegment, color: StackColor) => {
+    playRange(segment.start, segment.end)
     const key = `${segment.id}-${Date.now()}`
     const { width, height } = dropWord(segment.text, key)
     setStacked((prev) => [...prev, { key, text: segment.text, color, width, height }])
@@ -357,7 +352,15 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     if (!next) {
       activeSegmentRef.current = null
       const first = segments[0]
-      window.setTimeout(() => playRange(first.start, segment.end), 400)
+      // 마지막 구간 자체의 사운드를 바로 위에서 막 재생을 시작했다 — 그 사운드가 끝나기 전에
+      // 전체 흐름 재생이 시작되면 둘이 겹쳐 들린다. 재생 시간(+숨 고르는 여유)만큼 기다렸다가 재생한다.
+      const lastClipMs = (segment.end - segment.start) * 1000
+      const delay = lastClipMs + REPLAY_BUFFER_MS
+      setReplayCountdown(Math.ceil(delay / 1000))
+      window.setTimeout(() => {
+        setReplayCountdown(null)
+        playFullReplay(first.start, segment.end)
+      }, delay)
       setPhase('done')
       return
     }
@@ -380,15 +383,16 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     }
 
     setValue(next)
-    // 한글 IME는 마지막 글자가 조합 중인 상태로 onChange가 먼저 올 때가 있다. 이때 정타로
-    // 판정해서 지워버리면, 브라우저가 들고 있는 조합 버퍼는 지워지지 않고 남아서 다음 구간
-    // 입력에 이전 글자가 섞여 보인다. compositionend까지 판정을 미룬다.
-    if (composingRef.current || (e.nativeEvent as InputEvent).isComposing) return
+    // 조합 중이어도(예: PC 데스크톱 한글 IME는 마지막 글자를 다음 키 입력이나 Enter 전까지
+    // compositionend 없이 계속 "조합 중" 상태로 붙들고 있는 경우가 많다 — 모바일 가상 키보드는
+    // 글자마다 바로바로 끝나는 것과 다르다) 화면에 보이는 값이 이미 정답과 정확히 같으면 그
+    // 시점에 바로 커밋한다. 이렇게 조합 도중에 지워도 남는 잔여 텍스트 문제는 정타 직후
+    // 트레일링 이벤트를 걸러내는 justClearedTextRef 가드와, 인풋 자체를 새로 만드는
+    // key={inputGen} 리마운트가 이미 처리해준다.
     if (activeSegmentRef.current && next.trim() === activeSegmentRef.current.text) commitSegment()
   }
 
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
-    composingRef.current = false
     const value = e.currentTarget.value
     if (activeSegmentRef.current && value.trim() === activeSegmentRef.current.text) commitSegment()
   }
@@ -440,11 +444,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
           <>
             {/* 타이핑을 마친 가사가 물리 시뮬레이션으로 떨어져 쌓이는 바닥 영역. 헤더가 항상
                 h-24로 고정 높이라 top-24로 겹치지 않게 나눠둘 수 있다. */}
-            <div
-              ref={floorRef}
-              className='absolute inset-x-0 bottom-0 top-24 overflow-hidden transition-[bottom] duration-200 ease-out'
-              style={{ bottom: keyboardInset }}
-            >
+            <div ref={floorRef} className='absolute inset-x-0 bottom-0 top-24 overflow-hidden'>
               {stacked.map((w) => (
                 <span
                   key={w.key}
@@ -463,22 +463,19 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
               ))}
             </div>
 
-            <div className='absolute top-0 inset-x-0 h-24 z-10 flex flex-col items-center justify-center gap-3 px-10'>
+            <div className='absolute top-0 inset-x-0 h-full  min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
               {phase === 'playing' && (
-                <>
+                <div className='w-full h-fit py-4  flex flex-col justify-center items-center gap-3'>
                   <p className='text-sm text-primary'>{current.text}</p>
                   <input
                     key={inputGen}
                     ref={inputRef}
                     value={value}
                     onChange={handleChange}
-                    onCompositionStart={() => {
-                      composingRef.current = true
-                    }}
                     onCompositionEnd={handleCompositionEnd}
                     readOnly={matchedColor !== null}
                     className={classNames(
-                      'w-3/5 border border-primary/30 text-center py-1.5 text-sm bg-white',
+                      'w-3/5 max-w-[240px] min-w-[120px] border border-primary/30 text-center py-1.5 text-sm',
                       matchedColor ? COLOR_CLASS[matchedColor] : 'text-black',
                     )}
                     autoFocus
@@ -487,26 +484,35 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
                     autoCapitalize='off'
                     spellCheck={false}
                   />
-                </>
+                </div>
               )}
               {phase === 'done' && (
-                <div className='flex flex-col items-center gap-3'>
+                <div className='flex h-full  flex-col justify-start py-10 items-center gap-4'>
                   <p className='text-sm'>수고했어요 :)</p>
-                  <button
-                    onClick={() => playRange(segments[0].start, segments[segments.length - 1].end)}
-                    className={classNames('px-4 py-1.5 border border-primary text-xs bg-white', commonTransition)}
-                  >
-                    다시 듣기
-                  </button>
-                  <button
-                    onClick={handleRestart}
-                    className={classNames(
-                      'px-4 py-1.5 border border-primary bg-primary text-white text-xs',
-                      commonTransition,
+
+                  <div className='w-full h-fit  flex flex-row justify-center items-center gap-2'>
+                    <button
+                      onClick={() => playFullReplay(segments[0].start, segments[segments.length - 1].end)}
+                      className={classNames('px-4 py-1.5 border border-primary text-xs bg-white', commonTransition)}
+                    >
+                      다시 듣기
+                    </button>
+                    <button
+                      onClick={handleRestart}
+                      className={classNames(
+                        'px-4 py-1.5 border border-primary bg-primary text-white text-xs',
+                        commonTransition,
+                      )}
+                    >
+                      다시 하기
+                    </button>
+                  </div>
+                  <div className='w-full h-fit  flex flex-col justify-start items-center gap-2'>
+                    {replayCountdown !== null && replayCountdown > 0 && (
+                      <p className='text-xs text-primary/60'>{replayCountdown}초 뒤 전체 재생됩니다...</p>
                     )}
-                  >
-                    다시 하기
-                  </button>
+                    {replayCurrentText !== null && <p className='text-sm text-primary/60'>{replayCurrentText}</p>}
+                  </div>
                 </div>
               )}
             </div>
