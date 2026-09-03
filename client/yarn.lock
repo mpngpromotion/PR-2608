@@ -1078,9 +1078,15 @@
   integrity sha512-M00APgOJfP6xPZ3kAzZAUNATxluFiMU0wD3asp6HQSXDX8qLzSDh/Jmqbo0H7+WcqfpQkN8WYBu3aOzm2y/b4g==
 
 "@mediabunny/aac-encoder@^1.55.4":
+<<<<<<< HEAD
   version "1.55.7"
   resolved "https://registry.npmjs.org/@mediabunny/aac-encoder/-/aac-encoder-1.55.7.tgz"
   integrity sha512-hgxHA/5q9fgoKFxtvUKamCywpHJUNmcoMOBM4TlI46wxITYhBWegiVLvHlYbk7JhfrnT9ZZ+Rx4pHq8Ka3xltQ==
+=======
+  version "1.55.6"
+  resolved "https://registry.npmjs.org/@mediabunny/aac-encoder/-/aac-encoder-1.55.6.tgz"
+  integrity sha512-IiAJ5Y6a4X7BjzWsKOQAr4UIE1j0o4IcnM9h6gJM37HMFhUVnIS76jk/WF6Eq7rzR5chF2GRGzoF/eFeTObHdA==
+>>>>>>> 264eaf7 (add lyric game)
 
 "@next/env@16.3.1":
   version "16.3.1"
@@ -1350,6 +1356,11 @@
   version "0.0.29"
   resolved "https://registry.npmjs.org/@types/json5/-/json5-0.0.29.tgz"
   integrity sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==
+
+"@types/matter-js@^0.20.2":
+  version "0.20.2"
+  resolved "https://registry.npmjs.org/@types/matter-js/-/matter-js-0.20.2.tgz"
+  integrity sha512-3PPKy3QxvZ89h9+wdBV2488I1JLVs7DEpIkPvgO8JC1mUdiVSO37ZIvVctOTD7hIq8OAL2gJ3ugGSuUip6DhCw==
 
 "@types/node@^20":
   version "20.19.43"
@@ -3151,6 +3162,11 @@ math-intrinsics@^1.1.0:
   resolved "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz"
   integrity sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==
 
+matter-js@^0.20.0:
+  version "0.20.0"
+  resolved "https://registry.npmjs.org/matter-js/-/matter-js-0.20.0.tgz"
+  integrity sha512-iC9fYR7zVT3HppNnsFsp9XOoQdQN2tUyfaKg4CHLH8bN+j6GT4Gw7IH2rP0tflAebrHFw730RR3DkVSZRX8hwA==
+
 mdn-data@2.0.28:
   version "2.0.28"
   resolved "https://registry.npmjs.org/mdn-data/-/mdn-data-2.0.28.tgz"
@@ -3162,9 +3178,15 @@ mdn-data@2.0.30:
   integrity sha512-GaqWWShW4kv/G9IEucWScBx9G1/vsFZZJUO+tD26M8J8z3Kw5RDQjaoZe03YAClgeS/SWPOcb4nkFBTEi5DUEA==
 
 mediabunny@^1.0.0, mediabunny@^1.55.4:
+<<<<<<< HEAD
   version "1.55.7"
   resolved "https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.7.tgz"
   integrity sha512-Sb/vI8frRiDPbPUwl3hz0n69NSe9yt4Nydcv5yxi8Rdgk0BgnujEGjZqE+uCTehFbafcqIu6gDAok8ln98dcqg==
+=======
+  version "1.55.6"
+  resolved "https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.6.tgz"
+  integrity sha512-IuwxlL8GQ5qODxvdj0mm5bUumrwTr13ooX0UygsrT2u1uwERjV1Awv/zuFoY5iNeYic6SQU78BcGcGLnDgPQ9g==
+>>>>>>> 264eaf7 (add lyric game)
   dependencies:
     "@types/dom-mediacapture-transform" "^0.1.11"
     "@types/dom-webcodecs" "0.1.13"

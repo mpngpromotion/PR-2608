@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-  stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-  class="icon icon-tabler icons-tabler-outline icon-tabler-reload">
-  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-  <path d="M19.933 13.041a8 8 0 1 1 -9.925 -8.788c3.899 -1 7.935 1.007 9.425 4.747" />
-  <path d="M20 4v5h-5" />
+<svg xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24" fill="none">
+  <path
+    d="M18.9414 12.9115C18.7761 14.1712 18.271 15.3621 17.4802 16.3566C16.6894 17.3511 15.6427 18.1117 14.4523 18.5567C13.262 19.0017 11.973 19.1143 10.7235 18.8826C9.47397 18.6508 8.31114 18.0834 7.35969 17.2412C6.40824 16.399 5.70406 15.3137 5.32268 14.1018C4.9413 12.8899 4.8971 11.597 5.19482 10.3619C5.49254 9.12678 6.12096 7.99598 7.01267 7.09077C7.90438 6.18557 9.02574 5.5401 10.2565 5.22361C13.6683 4.3488 17.2 6.10455 18.5038 9.37635M19 5.00228V9.37635H14.6247"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
