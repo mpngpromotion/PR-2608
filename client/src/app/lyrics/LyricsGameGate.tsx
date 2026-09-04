@@ -21,14 +21,12 @@ export const LyricsGameGate = ({
   day1Segments: LyricsSegment[]
   audioSrc: string
 }) => {
-  // 개발 서버에서만 ?preview=full 로 9/18 이전에도 전체 버전을 미리 볼 수 있게 한다.
-  // NODE_ENV 체크가 있어서 프로덕션 빌드에는 이 분기 자체가 번들에 포함되지 않는다.
+  // ?preview=full 로 9/18 이전에도 전체 버전을 미리 볼 수 있게 한다. 배포 환경에서도 동작한다.
   const [previewFull, setPreviewFull] = useState(false)
   useEffect(() => {
     // DisplayByDate와 동일한 이유로 setState 호출을 중첩 함수 안에 둔다 — 이 파일 최상단에
     // 직접 두면 react-hooks 린트가 "effect 안에서 동기적으로 setState 호출"로 잡아낸다.
     const applyPreview = () => {
-      if (process.env.NODE_ENV !== 'development') return
       if (new URLSearchParams(window.location.search).get('preview') === 'full') setPreviewFull(true)
     }
     applyPreview()
