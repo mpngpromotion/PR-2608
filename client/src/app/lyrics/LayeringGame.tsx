@@ -87,6 +87,10 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   const bodiesRef = useRef<Map<string, Matter.Body>>(new Map())
   const elementsRef = useRef<Map<string, HTMLSpanElement>>(new Map())
   const rafRef = useRef<number | null>(null)
+  // 바닥+양옆 벽 바디. 브라우저 너비가 바뀔 때 이 바디들을 새 크기로 다시 만들어 끼워넣는다 —
+  // 안 그러면 벽이 처음 생성 시점의 너비에 고정된 채로 남아서, 창을 넓히면 오른쪽에 벽 없는
+  // 빈 공간이 생기고 좁히면 쌓인 글자가 화면 밖으로 삐져나온다.
+  const wallsRef = useRef<{ ground: Matter.Body; left: Matter.Body; right: Matter.Body } | null>(null)
 
   useEffect(() => {
     const ctx = audioCtxRef.current
@@ -107,6 +111,30 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     const t = window.setTimeout(() => setReplayCountdown((c) => (c ?? 1) - 1), 1000)
     return () => window.clearTimeout(t)
   }, [replayCountdown])
+
+  // 바닥 영역(floorRef)은 phase가 idle/loading일 땐 DOM에 없다가 playing/done에서만 마운트되니,
+  // ResizeObserver도 그때그때 다시 붙여야 한다. 콜백은 벽 바디를 지우고 지금 크기로 새로 만들어
+  // 끼워넣는다 — Matter 바디는 크기를 직접 바꾸는 API가 없어서 통째로 교체하는 게 제일 간단하다.
+  useEffect(() => {
+    const floor = floorRef.current
+    if (!floor) return
+    const wallOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    const observer = new ResizeObserver(() => {
+      const engine = engineRef.current
+      if (!engine) return
+      const width = floor.clientWidth
+      const height = floor.clientHeight
+      const prevWalls = wallsRef.current
+      if (prevWalls) Matter.World.remove(engine.world, [prevWalls.ground, prevWalls.left, prevWalls.right])
+      const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions)
+      const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, wallOptions)
+      const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
+      Matter.World.add(engine.world, [ground, left, right])
+      wallsRef.current = { ground, left, right }
+    })
+    observer.observe(floor)
+    return () => observer.disconnect()
+  }, [phase])
 
   const current = segments[index]
 
@@ -166,11 +194,11 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       velocityIterations: 8,
     })
     const wallOptions = { isStatic: true, friction: 0.6, restitution: 0 }
-    Matter.World.add(engine.world, [
-      Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions),
-      Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, wallOptions),
-      Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions),
-    ])
+    const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions)
+    const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, wallOptions)
+    const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
+    Matter.World.add(engine.world, [ground, left, right])
+    wallsRef.current = { ground, left, right }
     engineRef.current = engine
 
     // 고정 타임스텝으로 돌린다 — rAF가 준 델타를 그대로 한 번에 넘기면(특히 텝 전환/버벅임 후
@@ -203,6 +231,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     engineRef.current = null
+    wallsRef.current = null
     bodiesRef.current.clear()
     elementsRef.current.clear()
   }
