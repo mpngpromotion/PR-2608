@@ -91,6 +91,10 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   // 안 그러면 벽이 처음 생성 시점의 너비에 고정된 채로 남아서, 창을 넓히면 오른쪽에 벽 없는
   // 빈 공간이 생기고 좁히면 쌓인 글자가 화면 밖으로 삐져나온다.
   const wallsRef = useRef<{ ground: Matter.Body; left: Matter.Body; right: Matter.Body } | null>(null)
+  // 벽을 마지막으로 맞춰 놓은 바닥 크기. 리사이즈 때 이 값 대비 새 크기의 비율을 구해서, 이미
+  // 쌓여있던 단어 바디들도 같은 비율로 옮겨준다 — 벽만 옮기고 기존 바디는 그대로 두면, 넓은
+  // 화면에서 오른쪽 끝에 쌓인 단어가 화면을 좁혔을 때 보이는 영역 밖에 그대로 남아 잘려 보인다.
+  const lastFloorSizeRef = useRef<{ width: number; height: number } | null>(null)
 
   useEffect(() => {
     const ctx = audioCtxRef.current
@@ -124,6 +128,17 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       if (!engine) return
       const width = floor.clientWidth
       const height = floor.clientHeight
+      if (width <= 0 || height <= 0) return
+
+      // 터치 기반 기기(모바일/태블릿)에서 주소창이 접히거나 키보드가 뜨고 내려갈 때는(h-dvh)
+      // 높이만 바뀌고 폭은 그대로다 — 그런 경우는 무시한다. 매번 반응하면 타이핑 중 키보드가
+      // 뜰 때마다 이미 쌓인 단어들이 불필요하게 들썩인다. PC(마우스 포인터)는 주소창 접힘이나
+      // 가상 키보드가 없어서 폭 변화 없이 높이만 바뀌는 경우도 실제 창 크기 조절(세로로만
+      // 드래그)인 경우가 대부분이라 그대로 반영한다.
+      const prevSize = lastFloorSizeRef.current
+      const isCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+      if (isCoarsePointer && prevSize && prevSize.width === width) return
+
       const prevWalls = wallsRef.current
       if (prevWalls) Matter.World.remove(engine.world, [prevWalls.ground, prevWalls.left, prevWalls.right])
       const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions)
@@ -131,6 +146,23 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
       Matter.World.add(engine.world, [ground, left, right])
       wallsRef.current = { ground, left, right }
+
+      // 이미 쌓여있던 단어들을 이전 크기 대비 비율로 옮기고 재움 상태를 풀어준다 — sleeping
+      // 바디는 물리 스텝에서 아예 빠지기 때문에 위치만 옮기고 깨우지 않으면 겹친 채로 굳거나
+      // 바닥에서 살짝 뜬 채로 영원히 멈춰있게 된다.
+      if (prevSize && prevSize.width > 0 && prevSize.height > 0) {
+        const scaleX = width / prevSize.width
+        const scaleY = height / prevSize.height
+        bodiesRef.current.forEach((body) => {
+          const halfW = (body.bounds.max.x - body.bounds.min.x) / 2
+          const halfH = (body.bounds.max.y - body.bounds.min.y) / 2
+          const nx = Math.min(Math.max(body.position.x * scaleX, halfW), Math.max(width - halfW, halfW))
+          const ny = Math.min(body.position.y * scaleY, Math.max(height - halfH, halfH))
+          Matter.Body.setPosition(body, { x: nx, y: ny })
+          Matter.Sleeping.set(body, false)
+        })
+      }
+      lastFloorSizeRef.current = { width, height }
     })
     observer.observe(floor)
     return () => observer.disconnect()
@@ -199,6 +231,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
     Matter.World.add(engine.world, [ground, left, right])
     wallsRef.current = { ground, left, right }
+    lastFloorSizeRef.current = { width, height }
     engineRef.current = engine
 
     // 고정 타임스텝으로 돌린다 — rAF가 준 델타를 그대로 한 번에 넘기면(특히 텝 전환/버벅임 후
@@ -232,6 +265,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     rafRef.current = null
     engineRef.current = null
     wallsRef.current = null
+    lastFloorSizeRef.current = null
     bodiesRef.current.clear()
     elementsRef.current.clear()
   }
