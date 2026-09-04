@@ -49,12 +49,6 @@ export function CreateFlow() {
   const [video, setVideo] = useState<GeneratedVideoResult | null>(null)
   // navigator.share는 서버(SSR)엔 없고 지원 브라우저도 제한적이라, lazy 초기값으로 클라이언트에서만 확인한다.
   const [canShare] = useState(() => typeof navigator !== 'undefined' && !!navigator.share)
-  // Android 카카오톡 인앱 WebView는 blob: URL을 <a download>로 저장하지 못하므로,
-  // 이 환경에서만 저장 버튼을 네이티브 파일 공유로 대체한다.
-  const [isAndroidKakaoInApp] = useState(() => {
-    if (typeof navigator === 'undefined') return false
-    return /Android/i.test(navigator.userAgent) && /KAKAOTALK/i.test(navigator.userAgent)
-  })
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
 
   // 단계 이동은 router.push로 history에 쌓아서, 뒤로가기 누르면 이전 단계로 돌아가게 한다.
@@ -94,28 +88,6 @@ export function CreateFlow() {
       // 사용자가 공유 시트를 취소한 경우(AbortError)는 정상 흐름이라 조용히 넘어간다.
       if (error instanceof Error && error.name !== 'AbortError') {
         alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
-      }
-    } finally {
-      setShareStatus('idle')
-    }
-  }
-
-  const handleSaveVideoInApp = async () => {
-    if (!video || shareStatus !== 'idle') return
-    const file = new File([video.blob], `${name || 'layer'}.${video.extension}`, { type: video.blob.type })
-
-    if (!navigator.canShare?.({ files: [file] })) {
-      alert('카카오톡 안에서는 영상을 직접 저장할 수 없어요. 공유 버튼을 이용해주세요.')
-      return
-    }
-
-    setShareStatus('sharing')
-    try {
-      // 저장 용도에서는 텍스트를 빼고 파일만 전달해야 받을 수 있는 앱의 범위가 가장 넓다.
-      await navigator.share({ files: [file] })
-    } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        alert('영상 저장 화면을 열지 못했어요. 카카오톡의 공유 버튼을 이용해주세요.')
       }
     } finally {
       setShareStatus('idle')
@@ -200,27 +172,9 @@ export function CreateFlow() {
             <div className='flex flex-wrap justify-center gap-2'>
               {video && (
                 <div className='flex flex-row items-center justify-center gap-4'>
-                  {isAndroidKakaoInApp ? (
-                    <button
-                      type='button'
-                      onClick={handleSaveVideoInApp}
-                      disabled={shareStatus !== 'idle'}
-                      aria-label='영상 저장 또는 공유'
-                      className='disabled:opacity-40'
-                    >
-                      <DownloadIcon
-                        className={classNames('w-[32px] h-[32px]', shareStatus === 'sharing' ? 'animate-pulse' : '')}
-                      />
-                    </button>
-                  ) : (
-                    <a
-                      href={video.url}
-                      download={`${name || 'layer'}.${video.extension}`}
-                      aria-label='영상 다운로드'
-                    >
-                      <DownloadIcon className='w-[32px] h-[32px]' />
-                    </a>
-                  )}
+                  <a href={video.url} download={`${name || 'layer'}.${video.extension}`} className=''>
+                    <DownloadIcon className='w-[32px] h-[32px]' />
+                  </a>
                   {canShare && (
                     <button
                       type='button'
