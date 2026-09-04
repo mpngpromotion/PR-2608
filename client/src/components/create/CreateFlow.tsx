@@ -49,6 +49,12 @@ export function CreateFlow() {
   const [video, setVideo] = useState<GeneratedVideoResult | null>(null)
   // navigator.share는 서버(SSR)엔 없고 지원 브라우저도 제한적이라, lazy 초기값으로 클라이언트에서만 확인한다.
   const [canShare] = useState(() => typeof navigator !== 'undefined' && !!navigator.share)
+  // 카카오톡 인앱 WebView에서는 blob: URL의 <a download>가 OS와 버전에 따라 실패할 수 있다.
+  // 저장 아이콘 자체는 항상 보여주고, 이 환경에서만 완성된 파일을 네이티브 공유 시트로 넘긴다.
+  const [isKakaoInApp] = useState(() => {
+    if (typeof navigator === 'undefined') return false
+    return /KAKAOTALK/i.test(navigator.userAgent)
+  })
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
 
   // 단계 이동은 router.push로 history에 쌓아서, 뒤로가기 누르면 이전 단계로 돌아가게 한다.
@@ -88,6 +94,35 @@ export function CreateFlow() {
       // 사용자가 공유 시트를 취소한 경우(AbortError)는 정상 흐름이라 조용히 넘어간다.
       if (error instanceof Error && error.name !== 'AbortError') {
         alert(`이 브라우저에서는 파일 공유가 지원되지 않아요. 다운로드 후 공유해주세요.`)
+      }
+    } finally {
+      setShareStatus('idle')
+    }
+  }
+
+  const handleSaveVideoInKakao = async () => {
+    if (!video || shareStatus !== 'idle') return
+    const file = new File([video.blob], `${name || 'layer'}.${video.extension}`, { type: video.blob.type })
+
+    if (typeof navigator.share !== 'function') {
+      alert('현재 카카오톡 브라우저에서는 영상 저장 기능을 지원하지 않아요.')
+      return
+    }
+
+    // 일부 WebView에는 canShare가 없으므로, API가 존재하는 경우에만 사전 검사한다.
+    if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+      alert('현재 카카오톡 브라우저에서는 이 영상 파일을 저장하거나 공유할 수 없어요.')
+      return
+    }
+
+    setShareStatus('sharing')
+    try {
+      // 텍스트 없이 파일만 넘겨서 공유 대상 앱의 호환 범위를 넓힌다.
+      await navigator.share({ files: [file] })
+    } catch (error) {
+      // 사용자가 공유 시트를 닫은 것은 정상적인 취소 동작이다.
+      if (error instanceof Error && error.name !== 'AbortError') {
+        alert('영상 저장 화면을 열지 못했어요. 카카오톡을 최신 버전으로 업데이트한 뒤 다시 시도해주세요.')
       }
     } finally {
       setShareStatus('idle')
@@ -172,9 +207,23 @@ export function CreateFlow() {
             <div className='flex flex-wrap justify-center gap-2'>
               {video && (
                 <div className='flex flex-row items-center justify-center gap-4'>
-                  <a href={video.url} download={`${name || 'layer'}.${video.extension}`} className=''>
-                    <DownloadIcon className='w-[32px] h-[32px]' />
-                  </a>
+                  {isKakaoInApp ? (
+                    <button
+                      type='button'
+                      onClick={handleSaveVideoInKakao}
+                      disabled={shareStatus !== 'idle'}
+                      aria-label='영상 저장 또는 공유'
+                      className='disabled:opacity-40'
+                    >
+                      <DownloadIcon
+                        className={classNames('w-[32px] h-[32px]', shareStatus === 'sharing' ? 'animate-pulse' : '')}
+                      />
+                    </button>
+                  ) : (
+                    <a href={video.url} download={`${name || 'layer'}.${video.extension}`} aria-label='영상 다운로드'>
+                      <DownloadIcon className='w-[32px] h-[32px]' />
+                    </a>
+                  )}
                   {canShare && (
                     <button
                       type='button'
