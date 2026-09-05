@@ -73,6 +73,27 @@ interface IntroGatherProps {
 const MIN_PHOTOS = 12
 const MAX_PHOTOS = 12
 
+type PhotoStatus = 'waiting' | 'converting' | 'loading' | 'ready' | 'error'
+
+interface PhotoItem {
+  id: string
+  url: string | null
+  status: PhotoStatus
+}
+
+function isHeicFile(file: File) {
+  return file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)
+}
+
+function waitForImage(url: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('이미지를 디코딩하지 못했습니다.'))
+    image.src = url
+  })
+}
+
 // 기획안 화면 1~2: 화면을 터치하면 흩어진 사각형 5개가 메인 인트로(GatherLetters)와 똑같은
 // 배치·크기로 중앙에 모인다. 터치 전엔 initial={false}라 애니메이션 없이 흩어진 채로 정지해있고,
 // 터치하면 animate 타겟이 바뀌면서 스프링이 움직인다. 5개 전부 실제로 멈춘 뒤(onAnimationComplete)
@@ -87,10 +108,8 @@ export function IntroGather({
   const [phase, setPhase] = useState<Phase>('gathering')
   const [name, setName] = useState('')
   const [color, setColor] = useState('#979797')
-  const [photos, setPhotos] = useState<string[]>([])
-  // 폰카메라 원본 사진은 용량이 커서 그리드 썸네일로 디코딩되는 데 눈에 띄게 걸릴 수 있어,
-  // 다 디코딩된(onLoad) 사진만 여기 표시하고 그 전엔 스피너를 보여준다.
-  const [loadedPhotoUrls, setLoadedPhotoUrls] = useState<Set<string>>(new Set())
+  const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [processingProgress, setProcessingProgress] = useState<{ completed: number; total: number } | null>(null)
   const settledCountRef = useRef(0)
 
   const handleTouch = () => setStarted(true)
@@ -103,17 +122,65 @@ export function IntroGather({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleAddPhotos = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
+  const handleAddPhotos = async (event: ChangeEvent<HTMLInputElement>) => {
+    const remainingCount = MAX_PHOTOS - photos.length
+    const files = Array.from(event.target.files ?? []).slice(0, remainingCount)
     event.target.value = '' // 같은 파일을 다시 골라도 onChange가 또 뜨도록 초기화
     if (files.length === 0) return
 
-    setPhotos((prev) => [...prev, ...files.map((file) => URL.createObjectURL(file))].slice(0, MAX_PHOTOS))
+    const items: PhotoItem[] = files.map((file, index) => ({
+      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+      url: null,
+      status: 'waiting',
+    }))
+    setPhotos((prev) => [...prev, ...items])
+    setProcessingProgress({ completed: 0, total: files.length })
+
+    // HEIC 디코더 모듈을 불러오고 초기화하기 전에 대기 슬롯을 먼저 화면에 그린다.
+    // 두 번의 animation frame을 기다려 React 커밋뿐 아니라 실제 브라우저 페인트까지 보장한다.
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+
+    let heicTo: typeof import('heic-to')['heicTo'] | null = null
+
+    // 고해상도 사진 여러 장을 동시에 디코딩하면 모바일 메모리가 급증하므로 변환과 로딩을 순차 처리한다.
+    for (const [index, file] of files.entries()) {
+      const item = items[index]
+      let url: string | null = null
+
+      try {
+        let imageBlob: Blob = file
+        if (isHeicFile(file)) {
+          setPhotos((prev) => prev.map((photo) => (photo.id === item.id ? { ...photo, status: 'converting' } : photo)))
+          heicTo ??= (await import('heic-to')).heicTo
+          imageBlob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 })
+        }
+
+        url = URL.createObjectURL(imageBlob)
+        setPhotos((prev) =>
+          prev.map((photo) => (photo.id === item.id ? { ...photo, url, status: 'loading' } : photo)),
+        )
+        await waitForImage(url)
+        setPhotos((prev) => prev.map((photo) => (photo.id === item.id ? { ...photo, status: 'ready' } : photo)))
+      } catch (error) {
+        if (url) URL.revokeObjectURL(url)
+        console.error(`사진 처리에 실패했습니다: ${file.name}`, error)
+        setPhotos((prev) =>
+          prev.map((photo) => (photo.id === item.id ? { ...photo, url: null, status: 'error' } : photo)),
+        )
+      } finally {
+        setProcessingProgress({ completed: index + 1, total: files.length })
+      }
+    }
+
+    setProcessingProgress(null)
   }
 
   const handleRemovePhoto = (index: number) => {
     setPhotos((prev) => {
-      URL.revokeObjectURL(prev[index])
+      const url = prev[index]?.url
+      if (url) URL.revokeObjectURL(url)
       return prev.filter((_, i) => i !== index)
     })
   }
@@ -226,24 +293,35 @@ export function IntroGather({
                   <span className='w-fit h-fit'>사진을 선택해 주세요</span>
 
                   <div className='grid w-full max-w-sm grid-cols-4 gap-4 overflow-y-auto p-4'>
-                    {photos.map((url, index) => (
-                      <div key={url} className='relative aspect-square'>
-                        {!loadedPhotoUrls.has(url) && (
-                          <div className='absolute inset-0 flex items-center justify-center'>
-                            <LoadingSpinner />
+                    {photos.map((photo, index) => (
+                      <div key={photo.id} className='relative aspect-square rounded bg-black/20'>
+                        {photo.status !== 'ready' && (
+                          <div className='absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-1 text-center text-[10px]'>
+                            {photo.status !== 'error' && <LoadingSpinner />}
+                            <span>
+                              {photo.status === 'waiting' && '대기 중'}
+                              {photo.status === 'converting' && 'HEIC 변환 중'}
+                              {photo.status === 'loading' && '불러오는 중'}
+                              {photo.status === 'error' && '처리 실패'}
+                            </span>
                           </div>
                         )}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt=''
-                          onLoad={() => setLoadedPhotoUrls((prev) => (prev.has(url) ? prev : new Set(prev).add(url)))}
-                          className='h-full w-full rounded object-cover'
-                        />
+                        {photo.url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={photo.url}
+                            alt=''
+                            className={classNames(
+                              'h-full w-full rounded object-cover transition-opacity',
+                              photo.status === 'ready' ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                        )}
                         <button
                           type='button'
+                          disabled={processingProgress !== null}
                           onClick={() => handleRemovePhoto(index)}
-                          className='absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-black shadow transition-opacity hover:opacity-70'
+                          className='absolute -top-1.5 -right-1.5 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-black shadow transition-opacity hover:opacity-70 disabled:opacity-40'
                         >
                           <svg
                             xmlns='http://www.w3.org/2000/svg'
@@ -263,9 +341,10 @@ export function IntroGather({
                     {photos.length < MAX_PHOTOS && (
                       <button
                         type='button'
+                        disabled={processingProgress !== null}
                         onClick={() => fileInputRef.current?.click()}
                         className={classNames(
-                          'flex aspect-square items-center justify-center rounded border border-dashed border-white/60 text-2xl',
+                          'flex aspect-square items-center justify-center rounded border border-dashed border-white/60 text-2xl disabled:opacity-40',
                           commonTransition,
                         )}
                       >
@@ -278,6 +357,7 @@ export function IntroGather({
                     type='file'
                     accept='image/*'
                     multiple
+                    disabled={processingProgress !== null}
                     onChange={handleAddPhotos}
                     className='hidden'
                   />
@@ -285,12 +365,22 @@ export function IntroGather({
                   <span className='text-xs opacity-70'>
                     {photos.length}/{MAX_PHOTOS}장 · 정확히 {MAX_PHOTOS}장을 선택해주세요
                   </span>
+                  {processingProgress && (
+                    <span className='text-xs opacity-70'>
+                      사진 처리 중 {processingProgress.completed}/{processingProgress.total} ·{' '}
+                      {Math.round((processingProgress.completed / processingProgress.total) * 100)}%
+                    </span>
+                  )}
                 </div>
 
                 <div className='flex-1 flex w-fit flex-col items-center justify-center'>
                   <button
                     type='button'
-                    disabled={photos.length < MIN_PHOTOS}
+                    disabled={
+                      processingProgress !== null ||
+                      photos.length < MIN_PHOTOS ||
+                      photos.some((photo) => photo.status !== 'ready')
+                    }
                     onClick={() => setPhase('generating')}
                     className={classNames('border border-white px-4 py-2 disabled:opacity-40', commonTransition)}
                   >
@@ -301,7 +391,11 @@ export function IntroGather({
             )}
             {phase === 'generating' && (
               <motion.div key='generating' {...PHASE_TRANSITION} className='w-full h-full flex flex-col items-center'>
-                <GenerateStep photos={photos} color={color} onDone={(result) => onDone(result, name)} />
+                <GenerateStep
+                  photos={photos.flatMap((photo) => (photo.url && photo.status === 'ready' ? [photo.url] : []))}
+                  color={color}
+                  onDone={(result) => onDone(result, name)}
+                />
               </motion.div>
             )}
           </AnimatePresence>
