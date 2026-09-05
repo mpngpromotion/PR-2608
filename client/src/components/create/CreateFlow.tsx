@@ -64,6 +64,11 @@ export function CreateFlow() {
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const openExternalBrowser = () => {
+    const targetUrl = window.location.href
+    window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(targetUrl)}`
+  }
+
   const reset = () => {
     // "다시 만들기"는 예시 영상까지 다시 볼 필요는 없어서 인트로부터 시작한다.
     goToStep('intro')
@@ -164,6 +169,8 @@ export function CreateFlow() {
         <motion.div key='intro' {...STEP_TRANSITION} className='w-full h-dvh'>
           <IntroGather
             key={introKey}
+            showExternalBrowserPrompt={isKakaoInApp && !canShare}
+            onOpenExternalBrowser={openExternalBrowser}
             onDone={(result, submittedName) => {
               setVideo(result)
               setName(submittedName)

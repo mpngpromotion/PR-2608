@@ -63,6 +63,9 @@ const PHASE_TRANSITION = {
 interface IntroGatherProps {
   /** 이름 입력 → 사진 선택 → 생성까지 다 끝났을 때 한 번 호출된다 (생성 실패 시 result는 null). */
   onDone: (result: GeneratedVideoResult | null, name: string) => void
+  /** 파일 공유를 지원하지 않는 인앱 브라우저에서 첫 화면 하단에 외부 브라우저 안내를 표시한다. */
+  showExternalBrowserPrompt?: boolean
+  onOpenExternalBrowser?: () => void
   /** 모으는 속도. duration(초)만 바꿔도 되고, bounce로 튕기는 정도도 조절할 수 있다. */
   spring?: GatherSpring
 }
@@ -74,7 +77,12 @@ const MAX_PHOTOS = 12
 // 배치·크기로 중앙에 모인다. 터치 전엔 initial={false}라 애니메이션 없이 흩어진 채로 정지해있고,
 // 터치하면 animate 타겟이 바뀌면서 스프링이 움직인다. 5개 전부 실제로 멈춘 뒤(onAnimationComplete)
 // 안내 문구 자리에 이름 입력 → 사진 선택 → 생성이 이어서 나온다 — 사각형은 그대로 배경에 남는다.
-export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProps) {
+export function IntroGather({
+  onDone,
+  showExternalBrowserPrompt = false,
+  onOpenExternalBrowser,
+  spring = DEFAULT_SPRING,
+}: IntroGatherProps) {
   const [started, setStarted] = useState(false)
   const [phase, setPhase] = useState<Phase>('gathering')
   const [name, setName] = useState('')
@@ -135,21 +143,38 @@ export function IntroGather({ onDone, spring = DEFAULT_SPRING }: IntroGatherProp
         )
       })}
       {phase === 'gathering' ? (
-        <div
-          className={classNames(
-            'text-lg text-center text-primary pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-nowrap transition-opacity',
-          )}
-        >
-          이제, 여러분의 Layer를 쌓아보세요
-          <span
+        <>
+          <div
             className={classNames(
-              'block text-sm pt-2 transition-opacity',
-              started ? 'opacity-0' : 'opacity-100 animate-pulse',
+              'text-lg text-center text-primary pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-nowrap transition-opacity',
             )}
           >
-            화면을 터치하거나 클릭하면 시작합니다
-          </span>
-        </div>
+            이제, 여러분의 Layer를 쌓아보세요
+            <span
+              className={classNames(
+                'block text-sm pt-2 transition-opacity',
+                started ? 'opacity-0' : 'opacity-100 animate-pulse',
+              )}
+            >
+              화면을 터치하거나 클릭하면 시작합니다
+            </span>
+          </div>
+          {showExternalBrowserPrompt && !started && (
+            <div
+              className='absolute inset-x-0 bottom-8 z-10 flex flex-col items-center gap-2 px-4 text-center text-sm text-primary'
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p>원활한 이용을 위해 외부 브라우저에서 접속해 주세요</p>
+              <button
+                type='button'
+                onClick={onOpenExternalBrowser}
+                className={classNames('border-b border-current text-sm', commonTransition)}
+              >
+                외부 브라우저로 이동하기
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <motion.div
           initial={{ opacity: 0 }}
