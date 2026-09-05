@@ -164,7 +164,7 @@ export function IntroGather({
               className='absolute inset-x-0 bottom-8 z-10 flex flex-col items-center gap-2 px-4 text-center text-sm text-primary'
               onClick={(event) => event.stopPropagation()}
             >
-              <p>원활한 이용을 위해 외부 브라우저에서 접속해 주세요</p>
+              <p className='text-xs break-keep'>원활한 이용을 위해 외부 브라우저에서 접속해 주세요</p>
               <button
                 type='button'
                 onClick={onOpenExternalBrowser}
@@ -282,7 +282,9 @@ export function IntroGather({
                     className='hidden'
                   />
 
-                  <span className='text-xs opacity-70'>{photos.length}/{MAX_PHOTOS}장 · 정확히 {MAX_PHOTOS}장을 선택해주세요</span>
+                  <span className='text-xs opacity-70'>
+                    {photos.length}/{MAX_PHOTOS}장 · 정확히 {MAX_PHOTOS}장을 선택해주세요
+                  </span>
                 </div>
 
                 <div className='flex-1 flex w-fit flex-col items-center justify-center'>
