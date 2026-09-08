@@ -318,11 +318,7 @@ export const LayeringGame = ({
     const usesSeparateReplay = replayAudioSrc !== undefined && replayBuffer !== null
     const playbackStart = usesSeparateReplay ? 0 : start
     const playbackEnd = usesSeparateReplay ? replayBuffer.duration : end
-    const started = playBufferRange(
-      usesSeparateReplay ? replayBuffer : bufferRef.current,
-      playbackStart,
-      playbackEnd,
-    )
+    const started = playBufferRange(usesSeparateReplay ? replayBuffer : bufferRef.current, playbackStart, playbackEnd)
     if (!started) return
     const ctx = audioCtxRef.current
     const startedAtCtx = ctx?.currentTime ?? 0
@@ -371,7 +367,12 @@ export const LayeringGame = ({
     Matter.Events.on(engine, 'collisionActive', (event) => {
       const floorHeight = floorRef.current?.clientHeight ?? height
       event.pairs.forEach((pair) => {
-        const sideWall = pair.bodyA.label === 'lyrics-side-wall' ? pair.bodyA : pair.bodyB.label === 'lyrics-side-wall' ? pair.bodyB : null
+        const sideWall =
+          pair.bodyA.label === 'lyrics-side-wall'
+            ? pair.bodyA
+            : pair.bodyB.label === 'lyrics-side-wall'
+              ? pair.bodyB
+              : null
         if (!sideWall) return
         const word = pair.bodyA === sideWall ? pair.bodyB : pair.bodyA
         if (!word.isStatic && word.bounds.max.y < floorHeight - 2) Matter.Sleeping.set(word, false)
@@ -696,11 +697,11 @@ export const LayeringGame = ({
         {phase === 'idle' || phase === 'loading' ? (
           <div className='w-full h-full flex flex-col items-center justify-center gap-5 px-10 text-center'>
             <div className='flex -mt-12 flex-col items-center gap-3'>
-              <p className='text-[16.8px] leading-relaxed'>
+              <p className='text-[15px] leading-relaxed'>
                 소란의 신곡 &apos;이별직전&apos;을 <br />
                 Layering Game을 통해 미리 들어보세요!
               </p>
-              <p className='text-[14.4px] leading-relaxed'>
+              <p className='text-[13px] leading-relaxed'>
                 가사를 입력한 뒤 엔터를 누르면 노래가 재생됩니다. <br />
                 원활한 감상을 위해 무음 모드를 해제해 주세요.
               </p>
@@ -713,12 +714,12 @@ export const LayeringGame = ({
                     style={{ width: `${loadProgress}%` }}
                   />
                 </div>
-                <span className='text-[14.4px] text-primary/60'>불러오는 중... {loadProgress}%</span>
+                <span className='text-[14px] text-primary/60'>불러오는 중... {loadProgress}%</span>
               </div>
             ) : (
               <button
                 onClick={handleStart}
-                className={classNames('px-5 py-2 bg-primary font-bold text-white text-[16.8px]', commonTransition)}
+                className={classNames('px-5 py-2 bg-primary font-bold text-white text-[15px]', commonTransition)}
               >
                 START
               </button>
@@ -728,11 +729,7 @@ export const LayeringGame = ({
           <>
             {/* 타이핑을 마친 가사가 물리 시뮬레이션으로 떨어져 쌓이는 바닥 영역. 헤더가 항상
                 h-24로 고정 높이라 top-24로 겹치지 않게 나눠둘 수 있다. */}
-            <div
-              ref={floorRef}
-              className='absolute inset-x-0 top-24 overflow-hidden'
-              style={{ bottom: keyboardInset }}
-            >
+            <div ref={floorRef} className='absolute inset-x-0 top-24 overflow-hidden' style={{ bottom: keyboardInset }}>
               {stacked.map((w) => (
                 <span
                   key={w.key}
@@ -741,7 +738,7 @@ export const LayeringGame = ({
                     else elementsRef.current.delete(w.key)
                   }}
                   className={classNames(
-                    'absolute top-0 left-0 flex items-center justify-center text-[14.4px] whitespace-nowrap select-none',
+                    'absolute top-0 left-0 flex items-center justify-center text-[14px] whitespace-nowrap select-none',
                     COLOR_CLASS[w.color],
                   )}
                   style={{ width: w.width, height: w.height, willChange: 'transform' }}
@@ -754,7 +751,7 @@ export const LayeringGame = ({
             <div className='absolute top-0 inset-x-0 h-full  min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
               {phase === 'playing' && (
                 <div className='w-full h-fit py-4  flex flex-col justify-center items-center gap-3'>
-                  <p className='text-[16.8px] text-primary'>{current.text}</p>
+                  <p className='text-[15px] text-primary'>{current.text}</p>
                   <div className='relative w-3/5 max-w-[240px] min-w-[120px]'>
                     <input
                       key={inputGen}
@@ -764,7 +761,7 @@ export const LayeringGame = ({
                       onKeyDown={handleKeyDown}
                       readOnly={matchedColor !== null}
                       className={classNames(
-                        'w-full border border-primary/30 px-10 py-1.5 text-center text-[16.8px]',
+                        'w-full border border-primary/30 px-10 py-1.5 text-center text-[15px]',
                         inputColor ? COLOR_CLASS[inputColor] : 'text-black',
                         wrongInputShaking && 'animate-lyrics-text-shake motion-reduce:animate-none',
                       )}
@@ -777,9 +774,9 @@ export const LayeringGame = ({
                     />
                     {value.length > 0 && (
                       <button
-                      type='button'
-                      onPointerDown={(e) => e.preventDefault()}
-                      onClick={() => submitLyrics(inputRef.current?.value ?? value)}
+                        type='button'
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => submitLyrics(inputRef.current?.value ?? value)}
                         disabled={matchedColor !== null}
                         aria-label='입력 완료'
                         className={classNames(
@@ -802,7 +799,7 @@ export const LayeringGame = ({
               )}
               {phase === 'done' && (
                 <div className='flex h-full  flex-col justify-start py-10 items-center gap-4'>
-                  <p className='text-[16.8px]'>
+                  <p className='text-[15px]'>
                     소란(SORAN) EP [Layer] <br />
                     26.09.18 6PM (KST)
                   </p>
@@ -810,14 +807,14 @@ export const LayeringGame = ({
                   <div className='w-full h-fit  flex flex-row justify-center items-center gap-2'>
                     <button
                       onClick={() => playFullReplay(segments[0].start, segments[segments.length - 1].end)}
-                      className={classNames('px-4 py-1.5 border border-primary text-[14.4px] bg-white', commonTransition)}
+                      className={classNames('px-4 py-1.5 border border-primary text-[14px] bg-white', commonTransition)}
                     >
                       다시 듣기
                     </button>
                     <button
                       onClick={handleRestart}
                       className={classNames(
-                        'px-4 py-1.5 border border-primary bg-primary text-white text-[14.4px]',
+                        'px-4 py-1.5 border border-primary bg-primary text-white text-[14px]',
                         commonTransition,
                       )}
                     >
@@ -826,9 +823,9 @@ export const LayeringGame = ({
                   </div>
                   <div className='w-full h-fit  flex flex-col justify-start items-center gap-2'>
                     {replayCountdown !== null && replayCountdown > 0 && (
-                      <p className='text-[14.4px] text-primary/60'>{replayCountdown}초 뒤 전체 재생됩니다...</p>
+                      <p className='text-[14px] text-primary/60'>{replayCountdown}초 뒤 전체 재생됩니다...</p>
                     )}
-                    {replayCurrentText !== null && <p className='text-[16.8px] text-primary/60'>{replayCurrentText}</p>}
+                    {replayCurrentText !== null && <p className='text-[14px] text-primary/60'>{replayCurrentText}</p>}
                   </div>
                 </div>
               )}
