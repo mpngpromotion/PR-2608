@@ -25,6 +25,8 @@
   --animate-onload: onload 2s ease-out forwards;
   --animate-gravity: gravity 0.5s ease-in-out forwards;
   --animate-spinslow: spinslow 15s linear infinite;
+  --animate-lyrics-shake: lyrics-shake 500ms ease-in-out;
+  --animate-lyrics-text-shake: lyrics-text-shake 350ms ease-in-out;
 
   @keyframes onload {
     0% {
@@ -53,6 +55,46 @@
 
     100% {
       transform: rotate(360deg);
+    }
+  }
+
+  @keyframes lyrics-shake {
+
+    0%,
+    100% {
+      transform: translate(0);
+    }
+
+    25% {
+      transform: translateX(-4px);
+    }
+
+    50% {
+      transform: translateX(4px);
+    }
+
+    75% {
+      transform: translateX(-2px);
+    }
+  }
+
+  @keyframes lyrics-text-shake {
+
+    0%,
+    100% {
+      text-indent: 0;
+    }
+
+    25% {
+      text-indent: -4px;
+    }
+
+    50% {
+      text-indent: 4px;
+    }
+
+    75% {
+      text-indent: -2px;
     }
   }
 }

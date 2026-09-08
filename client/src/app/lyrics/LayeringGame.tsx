@@ -6,6 +6,7 @@ import classNames from 'classnames'
 import VolumeOnIcon from '@/svg/volumeOn.svg'
 import VolumeOffIcon from '@/svg/volumeOff.svg'
 import ReloadIcon from '@/svg/reload.svg'
+import { FiCornerDownLeft } from 'react-icons/fi'
 import { commonTransition } from '@/theme/transition'
 
 export type LyricsSegment = { id: number; text: string; start: number; end: number }
@@ -30,19 +31,33 @@ type StackedWord = {
   height: number
 }
 
-const STACK_FONT = "12px 'Sandoll DanpyunsunB', sans-serif"
-const WORD_PADDING_X = 14
-const WORD_HEIGHT = 24
+// 기존 12px 기준에서 약 120% 키운 크기. 렌더링 글자와 물리 충돌 박스의 측정값을 함께 맞춘다.
+const STACK_FONT = "14.4px 'Sandoll DanpyunsunB', sans-serif"
+const WORD_PADDING_X = 16.8
+const WORD_HEIGHT = 28.8
 // 정타 판정 → 인풋 글자에 색이 입혀진 채 아주 잠깐 보임 → 인풋에서 사라짐과 동시에 그 색을
 // 가진 채로 낙하 시작, 순서를 위한 대기 시간. 색이 눈에 띄되 "기다린다"는 느낌은 없게 짧게.
 const MATCH_HOLD_MS = 120
 // 마지막 구간의 개별 사운드가 다 끝난 뒤, 전체 흐름 재생 전에 살짝 두는 숨 고르는 시간.
 const REPLAY_BUFFER_MS = 400
+// 정답을 입력하고도 제출하지 않았을 때 Enter 아이콘을 다시 흔들어 주는 간격.
+const ENTER_REMINDER_MS = 1500
+
+// 띄어쓰기 유무와 IME의 유니코드 조합 방식 차이는 정답 여부에 영향을 주지 않게 한다.
+const normalizeLyrics = (text: string) => text.normalize('NFC').replace(/\s/g, '')
 
 // 타이틀곡 원곡 하나를 통째로 디코딩해두고, 정타 시 구간(start~end)만 잘라 재생한다.
 // <audio> currentTime seek 대신 Web Audio API를 쓰는 이유: 아주 짧은 구간을 촘촘히 이어
 // 재생해야 하는데, seek 기반 재생은 특히 iOS Safari에서 탐색 지연으로 구간이 밀리거나 끊긴다.
-export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]; audioSrc: string }) => {
+export const LayeringGame = ({
+  segments,
+  audioSrc,
+  replayAudioSrc,
+}: {
+  segments: LyricsSegment[]
+  audioSrc: string
+  replayAudioSrc?: string
+}) => {
   const [phase, setPhase] = useState<'idle' | 'loading' | 'playing' | 'done'>('idle')
   const [index, setIndex] = useState(0)
   const [value, setValue] = useState('')
@@ -56,6 +71,8 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   // 전체 흐름 재생 중, 지금 재생되고 있는 지점이 어느 구간인지(그 구간의 가사 텍스트). null이면
   // 전체 재생 중이 아니라는 뜻도 겸한다.
   const [replayCurrentText, setReplayCurrentText] = useState<string | null>(null)
+  const [wrongInputShaking, setWrongInputShaking] = useState(false)
+  const [enterIconShaking, setEnterIconShaking] = useState(false)
   // 정타마다 값이 바뀐다 — <input>의 key로 써서 구간이 넘어갈 때마다 인풋 DOM 노드를 통째로
   // 새로 만든다. 이전 노드에 남아있을 수 있는 IME 조합 버퍼나, 그 노드를 향해 아직 날아오고
   // 있는 트레일링 이벤트를 텍스트 비교 같은 걸로 하나하나 걸러내지 않고 통째로 무효화한다.
@@ -63,6 +80,8 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
 
   const audioCtxRef = useRef<AudioContext | null>(null)
   const bufferRef = useRef<AudioBuffer | null>(null)
+  // 16일 공개 버전의 완료 재생에만 사용하는 별도 하이라이트 음원.
+  const replayBufferRef = useRef<AudioBuffer | null>(null)
   const gainRef = useRef<GainNode | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   // 지금 맞춰야 할 구간을 React state(index)가 아니라 ref로도 따로 들고 있는다. 한글 IME는
@@ -72,14 +91,20 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   // 건너뛰어지고 인풋엔 방금 지운 텍스트가 되돌아와 남아있는 것처럼 보임). ref는 리렌더를
   // 기다리지 않고 commitSegment 안에서 그 자리에서 바로 갱신되니 이 경쟁 상태를 원천적으로 막는다.
   const activeSegmentRef = useRef<LyricsSegment | null>(segments[0] ?? null)
-  // 방금 커밋한(=다음 구간으로 넘어간) 텍스트. 위 트레일링 input 이벤트는 activeSegmentRef
-  // 덕분에 "다시 커밋"되진 않지만, handleChange가 그 이벤트의 값을 그대로 setValue로
-  // 반영해버리면 화면엔 방금 지운 이전 가사가 잠깐이 아니라 계속 남아있는 것처럼 보인다.
-  // 그 트레일링 이벤트의 값이 "방금 커밋한 텍스트와 정확히 같다"는 걸로 걸러내서 아예 무시한다.
-  const justClearedTextRef = useRef<string | null>(null)
   // 정타 판정 ~ 실제 낙하 시작 사이의 짧은 대기 구간 안에 있는지. state(matchedColor)는 비동기라
   // 그 틈에 트레일링 이벤트가 한 번 더 들어오면 commitSegment가 중복 실행될 수 있어서 ref로 막는다.
   const isHoldingRef = useRef(false)
+  const wasCorrectRef = useRef(false)
+  // AudioBufferSourceNode는 한 번 시작하면 별도로 참조하지 않는 한 중간에 멈출 수 없다. 현재
+  // 재생 중인 소스를 보관해 새 구간 재생, 다시 듣기, 재시작, 페이지 이탈 때 확실히 정지한다.
+  const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set())
+  const matchHoldTimeoutRef = useRef<number | null>(null)
+  const autoReplayTimeoutRef = useRef<number | null>(null)
+  const replayIntervalRef = useRef<number | null>(null)
+  const replayEndTimeoutRef = useRef<number | null>(null)
+  const enterReminderTimeoutRef = useRef<number | null>(null)
+  // 로딩 중 다시하기/페이지 이탈이 발생하면 완료된 비동기 작업이 게임을 다시 시작하지 못하게 한다.
+  const loadGenerationRef = useRef(0)
 
   const floorRef = useRef<HTMLDivElement>(null)
   const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null)
@@ -104,7 +129,22 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   }, [muted])
 
   useEffect(() => {
+    const activeSources = activeSourcesRef.current
     return () => {
+      loadGenerationRef.current += 1
+      activeSources.forEach((source) => {
+        try {
+          source.stop()
+        } catch {
+          // 이미 자연 종료된 소스는 다시 정지할 필요가 없다.
+        }
+      })
+      activeSources.clear()
+      if (matchHoldTimeoutRef.current !== null) window.clearTimeout(matchHoldTimeoutRef.current)
+      if (autoReplayTimeoutRef.current !== null) window.clearTimeout(autoReplayTimeoutRef.current)
+      if (replayIntervalRef.current !== null) window.clearInterval(replayIntervalRef.current)
+      if (replayEndTimeoutRef.current !== null) window.clearTimeout(replayEndTimeoutRef.current)
+      if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
       audioCtxRef.current?.close()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
@@ -122,7 +162,16 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   useEffect(() => {
     const floor = floorRef.current
     if (!floor) return
-    const wallOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    const groundOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    // 옆 벽에 마찰이 있으면 회전이 고정된 글자가 비스듬히 닿았을 때 마찰력으로 중간에
+    // 매달린 채 sleeping 상태가 될 수 있다. 옆 벽은 마찰을 없애 바닥까지 자연스럽게 미끄러뜨린다.
+    const sideWallOptions = {
+      isStatic: true,
+      friction: 0,
+      frictionStatic: 0,
+      restitution: 0,
+      label: 'lyrics-side-wall',
+    }
     const observer = new ResizeObserver(() => {
       const engine = engineRef.current
       if (!engine) return
@@ -141,9 +190,9 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
 
       const prevWalls = wallsRef.current
       if (prevWalls) Matter.World.remove(engine.world, [prevWalls.ground, prevWalls.left, prevWalls.right])
-      const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions)
-      const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, wallOptions)
-      const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
+      const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, groundOptions)
+      const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, sideWallOptions)
+      const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, sideWallOptions)
       Matter.World.add(engine.world, [ground, left, right])
       wallsRef.current = { ground, left, right }
 
@@ -170,16 +219,51 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
 
   const current = segments[index]
 
-  const playRange = (start: number, end: number) => {
+  const stopActiveSources = () => {
+    activeSourcesRef.current.forEach((source) => {
+      try {
+        source.stop()
+      } catch {
+        // 이미 종료된 소스일 수 있다.
+      }
+    })
+    activeSourcesRef.current.clear()
+  }
+
+  const clearReplayTimers = () => {
+    if (autoReplayTimeoutRef.current !== null) window.clearTimeout(autoReplayTimeoutRef.current)
+    if (replayIntervalRef.current !== null) window.clearInterval(replayIntervalRef.current)
+    if (replayEndTimeoutRef.current !== null) window.clearTimeout(replayEndTimeoutRef.current)
+    autoReplayTimeoutRef.current = null
+    replayIntervalRef.current = null
+    replayEndTimeoutRef.current = null
+  }
+
+  const stopPlayback = () => {
+    stopActiveSources()
+    clearReplayTimers()
+    setReplayCountdown(null)
+    setReplayCurrentText(null)
+  }
+
+  const playBufferRange = (buffer: AudioBuffer | null, start: number, end: number) => {
     const ctx = audioCtxRef.current
-    const buffer = bufferRef.current
     const gain = gainRef.current
     const duration = end - start
-    if (!ctx || !buffer || !gain || duration <= 0) return
+    if (!ctx || !buffer || !gain || duration <= 0) return false
+    // 빠른 타이핑과 버튼 연타에서도 직전에 재생하던 소리는 항상 여기서 교체된다.
+    stopActiveSources()
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.connect(gain)
+    activeSourcesRef.current.add(source)
+    source.onended = () => activeSourcesRef.current.delete(source)
     source.start(0, start, duration)
+    return true
+  }
+
+  const playRange = (start: number, end: number) => {
+    playBufferRange(bufferRef.current, start, end)
   }
 
   // 완성된 전체 구간을 재생하면서, 지금 재생 중인 지점이 어느 구간인지 그 가사를 계속 갱신해서
@@ -187,24 +271,40 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   // setTimeout 누적 오차 없이 "재생 시작 후 몇 초 지났는지"를 정확히 알 수 있다. 자동으로
   // 이어지는 재생과 "다시 듣기" 버튼 둘 다 이걸 써서 동작이 일관되게 한다.
   const playFullReplay = (start: number, end: number) => {
-    playRange(start, end)
+    clearReplayTimers()
+    setReplayCountdown(null)
+    setReplayCurrentText(null)
+    const replayBuffer = replayBufferRef.current
+    const usesSeparateReplay = replayAudioSrc !== undefined && replayBuffer !== null
+    const playbackStart = usesSeparateReplay ? 0 : start
+    const playbackEnd = usesSeparateReplay ? replayBuffer.duration : end
+    const started = playBufferRange(
+      usesSeparateReplay ? replayBuffer : bufferRef.current,
+      playbackStart,
+      playbackEnd,
+    )
+    if (!started) return
     const ctx = audioCtxRef.current
     const startedAtCtx = ctx?.currentTime ?? 0
     const tick = () => {
       const c = audioCtxRef.current
       if (!c) return
+      // 별도 음원은 첫 가사의 시작점을 0초로 본다. 원곡 타임코드로 관리되는 가사 강조도
+      // 같은 상대 시간만큼 이동시켜 기존처럼 표시한다.
       const absoluteTime = start + (c.currentTime - startedAtCtx)
       const seg = segments.find((s) => absoluteTime >= s.start && absoluteTime < s.end)
       if (seg) setReplayCurrentText(seg.text)
     }
     tick()
-    const intervalId = window.setInterval(tick, 120)
-    window.setTimeout(
+    replayIntervalRef.current = window.setInterval(tick, 120)
+    replayEndTimeoutRef.current = window.setTimeout(
       () => {
-        window.clearInterval(intervalId)
+        if (replayIntervalRef.current !== null) window.clearInterval(replayIntervalRef.current)
+        replayIntervalRef.current = null
+        replayEndTimeoutRef.current = null
         setReplayCurrentText(null)
       },
-      (end - start) * 1000,
+      (playbackEnd - playbackStart) * 1000,
     )
   }
 
@@ -225,10 +325,29 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       positionIterations: 10,
       velocityIterations: 8,
     })
-    const wallOptions = { isStatic: true, friction: 0.6, restitution: 0 }
-    const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, wallOptions)
-    const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, wallOptions)
-    const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, wallOptions)
+    // Matter.js는 중력을 sleeping 판정의 움직임으로 계산하지 않아서, 벽에 부딪혀 속도가 잠깐
+    // 줄어든 글자를 공중에서 잠재울 수 있다. 옆 벽과 계속 맞닿아 있고 아직 바닥 위라면 깨워서
+    // 중력이 다시 적용되게 한다. 바닥에 도착한 글자는 건드리지 않아 쌓인 뒤의 안정성은 유지한다.
+    Matter.Events.on(engine, 'collisionActive', (event) => {
+      const floorHeight = floorRef.current?.clientHeight ?? height
+      event.pairs.forEach((pair) => {
+        const sideWall = pair.bodyA.label === 'lyrics-side-wall' ? pair.bodyA : pair.bodyB.label === 'lyrics-side-wall' ? pair.bodyB : null
+        if (!sideWall) return
+        const word = pair.bodyA === sideWall ? pair.bodyB : pair.bodyA
+        if (!word.isStatic && word.bounds.max.y < floorHeight - 2) Matter.Sleeping.set(word, false)
+      })
+    })
+    const groundOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    const sideWallOptions = {
+      isStatic: true,
+      friction: 0,
+      frictionStatic: 0,
+      restitution: 0,
+      label: 'lyrics-side-wall',
+    }
+    const ground = Matter.Bodies.rectangle(width / 2, height + 10, width * 2, 20, groundOptions)
+    const left = Matter.Bodies.rectangle(-10, height / 2, 20, height * 3, sideWallOptions)
+    const right = Matter.Bodies.rectangle(width + 10, height / 2, 20, height * 3, sideWallOptions)
     Matter.World.add(engine.world, [ground, left, right])
     wallsRef.current = { ground, left, right }
     lastFloorSizeRef.current = { width, height }
@@ -304,6 +423,8 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   }
 
   const handleStart = async () => {
+    stopPlayback()
+    const loadGeneration = ++loadGenerationRef.current
     setPhase('loading')
     setLoadProgress(0)
     try {
@@ -332,7 +453,9 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
             if (done) break
             chunks.push(value)
             received += value.length
-            setLoadProgress(Math.min(Math.round((received / total) * 100), 99))
+            if (loadGenerationRef.current === loadGeneration) {
+              setLoadProgress(Math.min(Math.round((received / total) * 100), 99))
+            }
           }
           const merged = new Uint8Array(received)
           let offset = 0
@@ -346,29 +469,44 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
           setLoadProgress(99)
         }
         bufferRef.current = await audioCtxRef.current.decodeAudioData(arrayBuffer)
-        setLoadProgress(100)
-      } else {
-        setLoadProgress(100)
       }
+      if (loadGenerationRef.current !== loadGeneration) return
+      if (replayAudioSrc && !replayBufferRef.current) {
+        setLoadProgress(99)
+        const replayResponse = await fetch(replayAudioSrc)
+        if (!replayResponse.ok) throw new Error(`완료 재생 음원 로드 실패: ${replayResponse.status}`)
+        replayBufferRef.current = await audioCtxRef.current.decodeAudioData(await replayResponse.arrayBuffer())
+      }
+      if (loadGenerationRef.current !== loadGeneration) return
+      setLoadProgress(100)
       setIndex(0)
       setValue('')
       setStacked([])
       resetWorld()
       activeSegmentRef.current = segments[0] ?? null
-      justClearedTextRef.current = null
       setMatchedColor(null)
       isHoldingRef.current = false
+      wasCorrectRef.current = false
+      setWrongInputShaking(false)
+      setEnterIconShaking(false)
       setReplayCountdown(null)
       setReplayCurrentText(null)
       setPhase('playing')
       requestAnimationFrame(() => inputRef.current?.focus())
     } catch (e) {
+      if (loadGenerationRef.current !== loadGeneration) return
       console.error('가사 게임 오디오 로드 실패', e)
       setPhase('idle')
     }
   }
 
   const handleRestart = () => {
+    loadGenerationRef.current += 1
+    stopPlayback()
+    if (matchHoldTimeoutRef.current !== null) window.clearTimeout(matchHoldTimeoutRef.current)
+    if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
+    matchHoldTimeoutRef.current = null
+    enterReminderTimeoutRef.current = null
     setPhase('idle')
     setIndex(0)
     setValue('')
@@ -377,6 +515,9 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     activeSegmentRef.current = segments[0] ?? null
     setMatchedColor(null)
     isHoldingRef.current = false
+    wasCorrectRef.current = false
+    setWrongInputShaking(false)
+    setEnterIconShaking(false)
     setReplayCountdown(null)
     setReplayCurrentText(null)
   }
@@ -393,7 +534,10 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     const color = STACK_COLORS[Math.floor(Math.random() * STACK_COLORS.length)]
     setMatchedColor(color)
 
-    window.setTimeout(() => finalizeSegment(segment, color), MATCH_HOLD_MS)
+    matchHoldTimeoutRef.current = window.setTimeout(() => {
+      matchHoldTimeoutRef.current = null
+      finalizeSegment(segment, color)
+    }, MATCH_HOLD_MS)
   }
 
   const finalizeSegment = (segment: LyricsSegment, color: StackColor) => {
@@ -405,10 +549,10 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
     // setValue('')만으로는 부족할 때가 있다 — compositionend 직후 브라우저가 들고 있는 실제
     // <input> DOM 값을 강제로 같이 비워서, React 리렌더를 기다리다 생기는 시차 없이 즉시 지운다.
     if (inputRef.current) inputRef.current.value = ''
-    justClearedTextRef.current = segment.text
     setInputGen((g) => g + 1)
     setMatchedColor(null)
     isHoldingRef.current = false
+    wasCorrectRef.current = false
 
     const nextIndex = segments.findIndex((s) => s.id === segment.id) + 1
     const next = nextIndex > 0 ? segments[nextIndex] : undefined
@@ -420,7 +564,8 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       const lastClipMs = (segment.end - segment.start) * 1000
       const delay = lastClipMs + REPLAY_BUFFER_MS
       setReplayCountdown(Math.ceil(delay / 1000))
-      window.setTimeout(() => {
+      autoReplayTimeoutRef.current = window.setTimeout(() => {
+        autoReplayTimeoutRef.current = null
         setReplayCountdown(null)
         playFullReplay(first.start, segment.end)
       }, delay)
@@ -432,32 +577,56 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Enter 직후 한글 IME가 이전 input 노드를 향해 늦은 이벤트를 보내는 경우가 있다. 이벤트의
+    // 문자열이 전체 이전 가사일 수도, 마지막 음절 하나일 수도 있으므로 값으로 추측하지 않고
+    // 현재 ref가 가리키는 새 input에서 발생한 이벤트인지 직접 확인한다.
+    if (isHoldingRef.current || e.currentTarget !== inputRef.current) return
     const next = e.target.value
-    // compositionend로 이미 커밋한 직후, 브라우저가 그 조합이 끝났다는 걸 알리려고 트레일링
-    // input 이벤트를 값이 되돌아간 채로 한 번 더 보낼 때가 있다(옛 값 그대로). 그 이벤트를
-    // 정상 타이핑으로 착각해서 setValue로 반영하면 화면에 방금 지운 이전 가사가 남아있는
-    // 것처럼 보인다 — 방금 커밋한 텍스트와 완전히 같은 값이면 무시한다.
-    if (justClearedTextRef.current !== null) {
-      if (next === justClearedTextRef.current) {
-        if (inputRef.current) inputRef.current.value = ''
-        return
-      }
-      justClearedTextRef.current = null
-    }
-
     setValue(next)
-    // 조합 중이어도(예: PC 데스크톱 한글 IME는 마지막 글자를 다음 키 입력이나 Enter 전까지
-    // compositionend 없이 계속 "조합 중" 상태로 붙들고 있는 경우가 많다 — 모바일 가상 키보드는
-    // 글자마다 바로바로 끝나는 것과 다르다) 화면에 보이는 값이 이미 정답과 정확히 같으면 그
-    // 시점에 바로 커밋한다. 이렇게 조합 도중에 지워도 남는 잔여 텍스트 문제는 정타 직후
-    // 트레일링 이벤트를 걸러내는 justClearedTextRef 가드와, 인풋 자체를 새로 만드는
-    // key={inputGen} 리마운트가 이미 처리해준다.
-    if (activeSegmentRef.current && next.trim() === activeSegmentRef.current.text) commitSegment()
+    const segment = activeSegmentRef.current
+    const isCorrect = segment !== null && normalizeLyrics(next) === normalizeLyrics(segment.text)
+    if (isCorrect && !wasCorrectRef.current) {
+      if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
+      enterReminderTimeoutRef.current = null
+      setEnterIconShaking(true)
+    } else if (!isCorrect) {
+      if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
+      enterReminderTimeoutRef.current = null
+      setEnterIconShaking(false)
+    }
+    wasCorrectRef.current = isCorrect
   }
 
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
-    const value = e.currentTarget.value
-    if (activeSegmentRef.current && value.trim() === activeSegmentRef.current.text) commitSegment()
+  const submitLyrics = (enteredText: string) => {
+    const segment = activeSegmentRef.current
+    if (!segment || normalizeLyrics(enteredText) !== normalizeLyrics(segment.text)) {
+      setWrongInputShaking(true)
+      return
+    }
+
+    // PC 한글 IME에서는 마지막 글자가 아직 조합 중이어도 Enter keydown 시점의 DOM 값에는
+    // 완성된 글자가 들어 있다. 그 값을 기준으로 한 번만 확정하고, 뒤따르는 이전 input 이벤트는
+    // input key 교체와 DOM 노드 비교로 다음 입력창에 넘어오지 못하게 한다.
+    if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
+    enterReminderTimeoutRef.current = null
+    setEnterIconShaking(false)
+    commitSegment()
+  }
+
+  const handleEnterShakeEnd = () => {
+    setEnterIconShaking(false)
+    if (!wasCorrectRef.current || isHoldingRef.current) return
+    if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
+    enterReminderTimeoutRef.current = window.setTimeout(() => {
+      enterReminderTimeoutRef.current = null
+      if (wasCorrectRef.current && !isHoldingRef.current) setEnterIconShaking(true)
+    }, ENTER_REMINDER_MS)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    submitLyrics(e.currentTarget.value)
   }
 
   return (
@@ -470,7 +639,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
         >
           {muted ? <VolumeOffIcon className='w-6 h-6' /> : <VolumeOnIcon className='w-6 h-6' />}
         </button>
-        <span className='text-sm'>Layering Game</span>
+        <span className='text-[16.8px]'>Layering Game</span>
         <button onClick={handleRestart} aria-label='다시하기' className={classNames('p-2 text-lg', commonTransition)}>
           <ReloadIcon className='w-6 h-6' />
         </button>
@@ -479,11 +648,16 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
       <div className='relative w-full flex-1'>
         {phase === 'idle' || phase === 'loading' ? (
           <div className='w-full h-full flex flex-col items-center justify-center gap-5 px-10 text-center'>
-            <p className='text-sm leading-relaxed'>
-              소란의 신곡을
-              <br />
-              가사 레이어링을 통해 들어보자!
-            </p>
+            <div className='flex -mt-12 flex-col items-center gap-3'>
+              <p className='text-[16.8px] leading-relaxed'>
+                소란의 신곡 &apos;이별직전&apos;을 <br />
+                Layering Game을 통해 미리 들어보세요!
+              </p>
+              <p className='text-[14.4px] leading-relaxed'>
+                가사를 입력한 뒤 엔터를 누르면 노래가 재생됩니다. <br />
+                원활한 감상을 위해 무음 모드를 해제해 주세요.
+              </p>
+            </div>
             {phase === 'loading' ? (
               <div className='w-40 flex flex-col items-center gap-2'>
                 <div className='w-full h-1.5 border border-primary overflow-hidden'>
@@ -492,12 +666,12 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
                     style={{ width: `${loadProgress}%` }}
                   />
                 </div>
-                <span className='text-xs text-primary/60'>불러오는 중... {loadProgress}%</span>
+                <span className='text-[14.4px] text-primary/60'>불러오는 중... {loadProgress}%</span>
               </div>
             ) : (
               <button
                 onClick={handleStart}
-                className={classNames('px-5 py-2 bg-primary font-bold text-white text-sm', commonTransition)}
+                className={classNames('px-5 py-2 bg-primary font-bold text-white text-[16.8px]', commonTransition)}
               >
                 START
               </button>
@@ -516,7 +690,7 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
                     else elementsRef.current.delete(w.key)
                   }}
                   className={classNames(
-                    'absolute top-0 left-0 flex items-center justify-center text-xs whitespace-nowrap select-none',
+                    'absolute top-0 left-0 flex items-center justify-center text-[14.4px] whitespace-nowrap select-none',
                     COLOR_CLASS[w.color],
                   )}
                   style={{ width: w.width, height: w.height, willChange: 'transform' }}
@@ -529,41 +703,69 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
             <div className='absolute top-0 inset-x-0 h-full  min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
               {phase === 'playing' && (
                 <div className='w-full h-fit py-4  flex flex-col justify-center items-center gap-3'>
-                  <p className='text-sm text-primary'>{current.text}</p>
-                  <input
-                    key={inputGen}
-                    ref={inputRef}
-                    value={value}
-                    onChange={handleChange}
-                    onCompositionEnd={handleCompositionEnd}
-                    readOnly={matchedColor !== null}
-                    className={classNames(
-                      'w-3/5 max-w-[240px] min-w-[120px] border border-primary/30 text-center py-1.5 text-sm',
-                      matchedColor ? COLOR_CLASS[matchedColor] : 'text-black',
+                  <p className='text-[16.8px] text-primary'>{current.text}</p>
+                  <div className='relative w-3/5 max-w-[240px] min-w-[120px]'>
+                    <input
+                      key={inputGen}
+                      ref={inputRef}
+                      value={value}
+                      onChange={handleChange}
+                      onKeyDown={handleKeyDown}
+                      readOnly={matchedColor !== null}
+                      className={classNames(
+                        'w-full border border-primary/30 px-10 py-1.5 text-center text-[16.8px]',
+                        matchedColor ? COLOR_CLASS[matchedColor] : 'text-black',
+                        wrongInputShaking && 'animate-lyrics-text-shake motion-reduce:animate-none',
+                      )}
+                      onAnimationEnd={() => setWrongInputShaking(false)}
+                      autoFocus
+                      autoComplete='off'
+                      autoCorrect='off'
+                      autoCapitalize='off'
+                      spellCheck={false}
+                    />
+                    {value.length > 0 && (
+                      <button
+                        type='button'
+                        onClick={() => submitLyrics(inputRef.current?.value ?? value)}
+                        disabled={matchedColor !== null}
+                        aria-label='입력 완료'
+                        className={classNames(
+                          'absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-primary/50 disabled:cursor-default',
+                          commonTransition,
+                        )}
+                      >
+                        <FiCornerDownLeft
+                          className={classNames(
+                            'h-4 w-4',
+                            enterIconShaking && 'animate-lyrics-shake motion-reduce:animate-none',
+                          )}
+                          onAnimationEnd={handleEnterShakeEnd}
+                          aria-hidden='true'
+                        />
+                      </button>
                     )}
-                    autoFocus
-                    autoComplete='off'
-                    autoCorrect='off'
-                    autoCapitalize='off'
-                    spellCheck={false}
-                  />
+                  </div>
                 </div>
               )}
               {phase === 'done' && (
                 <div className='flex h-full  flex-col justify-start py-10 items-center gap-4'>
-                  <p className='text-sm'>수고했어요 :)</p>
+                  <p className='text-[16.8px]'>
+                    소란(SORAN) EP [Layer] <br />
+                    26.09.18 6PM (KST)
+                  </p>
 
                   <div className='w-full h-fit  flex flex-row justify-center items-center gap-2'>
                     <button
                       onClick={() => playFullReplay(segments[0].start, segments[segments.length - 1].end)}
-                      className={classNames('px-4 py-1.5 border border-primary text-xs bg-white', commonTransition)}
+                      className={classNames('px-4 py-1.5 border border-primary text-[14.4px] bg-white', commonTransition)}
                     >
                       다시 듣기
                     </button>
                     <button
                       onClick={handleRestart}
                       className={classNames(
-                        'px-4 py-1.5 border border-primary bg-primary text-white text-xs',
+                        'px-4 py-1.5 border border-primary bg-primary text-white text-[14.4px]',
                         commonTransition,
                       )}
                     >
@@ -572,9 +774,9 @@ export const LayeringGame = ({ segments, audioSrc }: { segments: LyricsSegment[]
                   </div>
                   <div className='w-full h-fit  flex flex-col justify-start items-center gap-2'>
                     {replayCountdown !== null && replayCountdown > 0 && (
-                      <p className='text-xs text-primary/60'>{replayCountdown}초 뒤 전체 재생됩니다...</p>
+                      <p className='text-[14.4px] text-primary/60'>{replayCountdown}초 뒤 전체 재생됩니다...</p>
                     )}
-                    {replayCurrentText !== null && <p className='text-sm text-primary/60'>{replayCurrentText}</p>}
+                    {replayCurrentText !== null && <p className='text-[16.8px] text-primary/60'>{replayCurrentText}</p>}
                   </div>
                 </div>
               )}

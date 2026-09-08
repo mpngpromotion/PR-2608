@@ -16,10 +16,12 @@ export const LyricsGameGate = ({
   allSegments,
   day1Segments,
   audioSrc,
+  day1ReplayAudioSrc,
 }: {
   allSegments: LyricsSegment[]
   day1Segments: LyricsSegment[]
   audioSrc: string
+  day1ReplayAudioSrc: string
 }) => {
   // ?preview=full 로 9/18 이전에도 전체 버전을 미리 볼 수 있게 한다. 배포 환경에서도 동작한다.
   const [previewFull, setPreviewFull] = useState(false)
@@ -36,7 +38,13 @@ export const LyricsGameGate = ({
 
   return (
     <DisplayByDate date={FULL_OPEN_DATE}>
-      {(isFullOpen) => <LayeringGame segments={isFullOpen ? allSegments : day1Segments} audioSrc={audioSrc} />}
+      {(isFullOpen) => (
+        <LayeringGame
+          segments={isFullOpen ? allSegments : day1Segments}
+          audioSrc={audioSrc}
+          replayAudioSrc={isFullOpen ? undefined : day1ReplayAudioSrc}
+        />
+      )}
     </DisplayByDate>
   )
 }
