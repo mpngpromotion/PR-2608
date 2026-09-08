@@ -66,6 +66,8 @@ export const LayeringGame = ({
   const [loadProgress, setLoadProgress] = useState(0)
   // 정타 판정 직후 ~ 실제로 인풋을 비우고 낙하시키기 전까지, 인풋 글자에 입혀둘 색.
   const [matchedColor, setMatchedColor] = useState<StackColor | null>(null)
+  // 입력값이 정답과 일치한 순간부터 Enter를 누르기 전까지 보여주고, 낙하 가사에도 이어지는 색.
+  const [readyColor, setReadyColor] = useState<StackColor | null>(null)
   // 마지막 구간 완료 후 전체 흐름 재생까지 몇 초 남았는지(초 단위, 카운트다운 표시용).
   const [replayCountdown, setReplayCountdown] = useState<number | null>(null)
   // 전체 흐름 재생 중, 지금 재생되고 있는 지점이 어느 구간인지(그 구간의 가사 텍스트). null이면
@@ -73,6 +75,9 @@ export const LayeringGame = ({
   const [replayCurrentText, setReplayCurrentText] = useState<string | null>(null)
   const [wrongInputShaking, setWrongInputShaking] = useState(false)
   const [enterIconShaking, setEnterIconShaking] = useState(false)
+  // 키보드가 레이아웃을 줄이지 않고 화면 위를 덮는 모바일 브라우저에서, 물리 바닥을 키보드
+  // 위로 올리기 위한 높이. 레이아웃 자체가 줄어드는 브라우저에서는 0으로 유지된다.
+  const [keyboardInset, setKeyboardInset] = useState(0)
   // 정타마다 값이 바뀐다 — <input>의 key로 써서 구간이 넘어갈 때마다 인풋 DOM 노드를 통째로
   // 새로 만든다. 이전 노드에 남아있을 수 있는 IME 조합 버퍼나, 그 노드를 향해 아직 날아오고
   // 있는 트레일링 이벤트를 텍스트 비교 같은 걸로 하나하나 걸러내지 않고 통째로 무효화한다.
@@ -156,13 +161,51 @@ export const LayeringGame = ({
     return () => window.clearTimeout(t)
   }, [replayCountdown])
 
+  useEffect(() => {
+    const viewport = window.visualViewport
+    let rafId: number | null = null
+
+    const updateKeyboardInset = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        const isInputFocused = document.activeElement === inputRef.current
+        if (!isInputFocused || !viewport) {
+          setKeyboardInset(0)
+          return
+        }
+
+        // iOS처럼 키보드가 layout viewport를 줄이지 않고 visual viewport만 가리는 경우의
+        // 실제 하단 가림 높이. Android처럼 innerHeight도 같이 줄어들면 자연스럽게 0이 된다.
+        const coveredHeight = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        setKeyboardInset(Math.round(coveredHeight))
+      })
+    }
+
+    updateKeyboardInset()
+    viewport?.addEventListener('resize', updateKeyboardInset)
+    viewport?.addEventListener('scroll', updateKeyboardInset)
+    window.addEventListener('resize', updateKeyboardInset)
+    document.addEventListener('focusin', updateKeyboardInset)
+    document.addEventListener('focusout', updateKeyboardInset)
+
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      viewport?.removeEventListener('resize', updateKeyboardInset)
+      viewport?.removeEventListener('scroll', updateKeyboardInset)
+      window.removeEventListener('resize', updateKeyboardInset)
+      document.removeEventListener('focusin', updateKeyboardInset)
+      document.removeEventListener('focusout', updateKeyboardInset)
+    }
+  }, [])
+
   // 바닥 영역(floorRef)은 phase가 idle/loading일 땐 DOM에 없다가 playing/done에서만 마운트되니,
   // ResizeObserver도 그때그때 다시 붙여야 한다. 콜백은 벽 바디를 지우고 지금 크기로 새로 만들어
   // 끼워넣는다 — Matter 바디는 크기를 직접 바꾸는 API가 없어서 통째로 교체하는 게 제일 간단하다.
   useEffect(() => {
     const floor = floorRef.current
     if (!floor) return
-    const groundOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    const groundOptions = { isStatic: true, friction: 0.4, restitution: 0 }
     // 옆 벽에 마찰이 있으면 회전이 고정된 글자가 비스듬히 닿았을 때 마찰력으로 중간에
     // 매달린 채 sleeping 상태가 될 수 있다. 옆 벽은 마찰을 없애 바닥까지 자연스럽게 미끄러뜨린다.
     const sideWallOptions = {
@@ -179,14 +222,10 @@ export const LayeringGame = ({
       const height = floor.clientHeight
       if (width <= 0 || height <= 0) return
 
-      // 터치 기반 기기(모바일/태블릿)에서 주소창이 접히거나 키보드가 뜨고 내려갈 때는(h-dvh)
-      // 높이만 바뀌고 폭은 그대로다 — 그런 경우는 무시한다. 매번 반응하면 타이핑 중 키보드가
-      // 뜰 때마다 이미 쌓인 단어들이 불필요하게 들썩인다. PC(마우스 포인터)는 주소창 접힘이나
-      // 가상 키보드가 없어서 폭 변화 없이 높이만 바뀌는 경우도 실제 창 크기 조절(세로로만
-      // 드래그)인 경우가 대부분이라 그대로 반영한다.
+      // 모바일 키보드가 나타날 때는 주로 폭은 그대로이고 높이만 변한다. 이전에는 이 변화를
+      // 무시했지만, 그러면 물리 바닥이 키보드 뒤에 남는다. 높이 변화도 반영해 벽과 기존 가사를
+      // 새로 보이는 영역 안으로 함께 이동시킨다.
       const prevSize = lastFloorSizeRef.current
-      const isCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
-      if (isCoarsePointer && prevSize && prevSize.width === width) return
 
       const prevWalls = wallsRef.current
       if (prevWalls) Matter.World.remove(engine.world, [prevWalls.ground, prevWalls.left, prevWalls.right])
@@ -215,9 +254,10 @@ export const LayeringGame = ({
     })
     observer.observe(floor)
     return () => observer.disconnect()
-  }, [phase])
+  }, [phase, keyboardInset])
 
   const current = segments[index]
+  const inputColor = matchedColor ?? readyColor
 
   const stopActiveSources = () => {
     activeSourcesRef.current.forEach((source) => {
@@ -337,7 +377,7 @@ export const LayeringGame = ({
         if (!word.isStatic && word.bounds.max.y < floorHeight - 2) Matter.Sleeping.set(word, false)
       })
     })
-    const groundOptions = { isStatic: true, friction: 0.6, restitution: 0 }
+    const groundOptions = { isStatic: true, friction: 0.4, restitution: 0 }
     const sideWallOptions = {
       isStatic: true,
       friction: 0,
@@ -389,10 +429,9 @@ export const LayeringGame = ({
     elementsRef.current.clear()
   }
 
-  // 정타 처리된 가사를 물리 바디로 만들어 화면 위쪽 밖에서 떨어뜨린다. 스폰될 때 살짝 랜덤한
-  // 각도를 줘서 자연스러운 기울기를 만들되, inertia를 무한대로 고정해서 충돌해도 그 각도에서
-  // 더 회전하지 않게 한다 — 안 그러면 여러 개가 쌓이면서 부딪힐 때 뒤집히거나 옆으로 눕는
-  // 경우가 생겨서 글자가 거꾸로 쌓이는 것처럼 보였다.
+  // 정타 처리된 가사를 화면 위쪽 중앙 부근에서 수평으로 떨어뜨린다. 좌우 관성을 주는 대신
+  // 생성 위치에만 작은 랜덤 오프셋을 적용해, 각 가사가 서로 다른 지점으로 곧게 낙하하면서
+  // 일자 탑이 되지 않고 자연스럽게 쌓이게 한다.
   const dropWord = (text: string, key: string): { width: number; height: number } => {
     if (!measureCtxRef.current) {
       measureCtxRef.current = document.createElement('canvas').getContext('2d')
@@ -404,18 +443,22 @@ export const LayeringGame = ({
 
     const engine = ensureWorld()
     const containerWidth = floorRef.current?.clientWidth ?? 320
-    const x = width / 2 + Math.random() * Math.max(containerWidth - width, 0)
-    const y = -40 - Math.random() * 30
+    // 고정 픽셀 범위는 넓은 화면에서 사실상 한 지점과 같아져 탑이 만들어진다. 화면 너비에
+    // 비례한 중앙 영역에 분산해 떨어뜨리되, 글자가 벽 밖에서 생성되지는 않게 제한한다.
+    const maxSpawnOffset = Math.min(containerWidth * 0.2, Math.max((containerWidth - width) / 2, 0))
+    const x = containerWidth / 2 + (Math.random() * 2 - 1) * maxSpawnOffset
+    const y = -40
 
     const body = Matter.Bodies.rectangle(x, y, width, height, {
-      angle: (Math.random() - 0.5) * 0.6,
+      angle: 0,
       restitution: 0,
-      friction: 0.6,
-      frictionAir: 0.012,
+      friction: 0.15,
+      frictionAir: 0.015,
       density: 0.0015,
+      chamfer: { radius: 3 },
+      sleepThreshold: 120,
     })
-    Matter.Body.setInertia(body, Infinity)
-    Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 1.2, y: 0 })
+    Matter.Body.setVelocity(body, { x: 0, y: 0 })
     Matter.World.add(engine.world, body)
     bodiesRef.current.set(key, body)
 
@@ -485,6 +528,7 @@ export const LayeringGame = ({
       resetWorld()
       activeSegmentRef.current = segments[0] ?? null
       setMatchedColor(null)
+      setReadyColor(null)
       isHoldingRef.current = false
       wasCorrectRef.current = false
       setWrongInputShaking(false)
@@ -514,6 +558,7 @@ export const LayeringGame = ({
     resetWorld()
     activeSegmentRef.current = segments[0] ?? null
     setMatchedColor(null)
+    setReadyColor(null)
     isHoldingRef.current = false
     wasCorrectRef.current = false
     setWrongInputShaking(false)
@@ -522,17 +567,17 @@ export const LayeringGame = ({
     setReplayCurrentText(null)
   }
 
-  // 정타 판정 → 인풋 글자가 그 색으로 아주 잠깐(MATCH_HOLD_MS) 보였다가 → 인풋에서 사라짐과
-  // "동시에" 그 색을 가진 채로 낙하 시작 + 그 순간 소리 재생. 색이 눈에 보이긴 해야 하지만
-  // "기다린다"는 느낌은 없어야 해서 값을 짧게 잡았다. 소리를 여기(finalizeSegment)가 아니라
-  // commitSegment에서 정타 순간 바로 재생해버리면, 떨어지는 시점과 소리가 어긋나 보인다.
+  // Enter로 정답을 확정하는 순간 소리는 바로 재생한다. 인풋 글자는 정답 색으로 아주 잠깐
+  // 보인 뒤(MATCH_HOLD_MS) 사라지면서 낙하한다. 음원까지 이 시간만큼 기다리게 하면 짧은
+  // 지연도 사용자에게는 재생 오류처럼 느껴질 수 있어 소리와 낙하 시작 시점만 분리한다.
   const commitSegment = () => {
     const segment = activeSegmentRef.current
     if (!segment || isHoldingRef.current) return
     isHoldingRef.current = true
 
-    const color = STACK_COLORS[Math.floor(Math.random() * STACK_COLORS.length)]
+    const color = readyColor ?? STACK_COLORS[Math.floor(Math.random() * STACK_COLORS.length)]
     setMatchedColor(color)
+    playRange(segment.start, segment.end)
 
     matchHoldTimeoutRef.current = window.setTimeout(() => {
       matchHoldTimeoutRef.current = null
@@ -541,7 +586,6 @@ export const LayeringGame = ({
   }
 
   const finalizeSegment = (segment: LyricsSegment, color: StackColor) => {
-    playRange(segment.start, segment.end)
     const key = `${segment.id}-${Date.now()}`
     const { width, height } = dropWord(segment.text, key)
     setStacked((prev) => [...prev, { key, text: segment.text, color, width, height }])
@@ -551,6 +595,7 @@ export const LayeringGame = ({
     if (inputRef.current) inputRef.current.value = ''
     setInputGen((g) => g + 1)
     setMatchedColor(null)
+    setReadyColor(null)
     isHoldingRef.current = false
     wasCorrectRef.current = false
 
@@ -586,10 +631,12 @@ export const LayeringGame = ({
     const segment = activeSegmentRef.current
     const isCorrect = segment !== null && normalizeLyrics(next) === normalizeLyrics(segment.text)
     if (isCorrect && !wasCorrectRef.current) {
+      setReadyColor(STACK_COLORS[Math.floor(Math.random() * STACK_COLORS.length)])
       if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
       enterReminderTimeoutRef.current = null
       setEnterIconShaking(true)
     } else if (!isCorrect) {
+      setReadyColor(null)
       if (enterReminderTimeoutRef.current !== null) window.clearTimeout(enterReminderTimeoutRef.current)
       enterReminderTimeoutRef.current = null
       setEnterIconShaking(false)
@@ -681,7 +728,11 @@ export const LayeringGame = ({
           <>
             {/* 타이핑을 마친 가사가 물리 시뮬레이션으로 떨어져 쌓이는 바닥 영역. 헤더가 항상
                 h-24로 고정 높이라 top-24로 겹치지 않게 나눠둘 수 있다. */}
-            <div ref={floorRef} className='absolute inset-x-0 bottom-0 top-24 overflow-hidden'>
+            <div
+              ref={floorRef}
+              className='absolute inset-x-0 top-24 overflow-hidden'
+              style={{ bottom: keyboardInset }}
+            >
               {stacked.map((w) => (
                 <span
                   key={w.key}
@@ -714,7 +765,7 @@ export const LayeringGame = ({
                       readOnly={matchedColor !== null}
                       className={classNames(
                         'w-full border border-primary/30 px-10 py-1.5 text-center text-[16.8px]',
-                        matchedColor ? COLOR_CLASS[matchedColor] : 'text-black',
+                        inputColor ? COLOR_CLASS[inputColor] : 'text-black',
                         wrongInputShaking && 'animate-lyrics-text-shake motion-reduce:animate-none',
                       )}
                       onAnimationEnd={() => setWrongInputShaking(false)}
@@ -726,8 +777,9 @@ export const LayeringGame = ({
                     />
                     {value.length > 0 && (
                       <button
-                        type='button'
-                        onClick={() => submitLyrics(inputRef.current?.value ?? value)}
+                      type='button'
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => submitLyrics(inputRef.current?.value ?? value)}
                         disabled={matchedColor !== null}
                         aria-label='입력 완료'
                         className={classNames(
