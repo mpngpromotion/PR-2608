@@ -202,3 +202,22 @@
   }
 
 }
+
+/* 모바일 키보드가 열린 동안 공유 버튼은 유지하되 레이아웃 높이를 차지하지 않게 한다.
+   게임 영역이 그 자리까지 확장되고, LayeringGame의 visualViewport 보정이 물리 바닥을
+   키보드 바로 위에 배치한다. */
+@media (pointer: coarse) {
+  .lyrics-page:has(input:focus) .lyrics-share {
+    position: absolute;
+    right: 0;
+    bottom: 1.25rem;
+    left: 0;
+  }
+}
+
+/* 플레이 및 완료 화면에서는 로고만 숨기고 헤더 높이는 그대로 예약한다. 게임 전환 전후에
+   물리 영역의 높이가 변하지 않아 이미 쌓인 가사의 위치도 다시 계산되지 않는다. */
+.lyrics-page:has(.lyrics-game-active) .lyrics-page-header {
+  visibility: hidden;
+  pointer-events: none;
+}

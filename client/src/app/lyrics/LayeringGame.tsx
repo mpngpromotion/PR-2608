@@ -678,8 +678,18 @@ export const LayeringGame = ({
   }
 
   return (
-    <div className='w-full h-full flex flex-col items-center'>
-      <div className='w-full flex flex-row items-center justify-between px-3 py-2'>
+    <div
+      className={classNames(
+        'relative w-full h-full flex flex-col items-center',
+        (phase === 'playing' || phase === 'done') && 'lyrics-game-active',
+      )}
+    >
+      <div
+        className={classNames(
+          'w-full flex flex-row items-center justify-between px-3 py-2',
+          (phase === 'playing' || phase === 'done') && 'absolute inset-x-0 -top-14 z-20',
+        )}
+      >
         <button
           onClick={() => setMuted((m) => !m)}
           aria-label='음소거'
@@ -727,8 +737,6 @@ export const LayeringGame = ({
           </div>
         ) : (
           <>
-            {/* 타이핑을 마친 가사가 물리 시뮬레이션으로 떨어져 쌓이는 바닥 영역. 헤더가 항상
-                h-24로 고정 높이라 top-24로 겹치지 않게 나눠둘 수 있다. */}
             <div ref={floorRef} className='absolute inset-x-0 top-24 overflow-hidden' style={{ bottom: keyboardInset }}>
               {stacked.map((w) => (
                 <span
@@ -748,9 +756,9 @@ export const LayeringGame = ({
               ))}
             </div>
 
-            <div className='absolute top-0 inset-x-0 h-full  min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
+            <div className='absolute top-0 inset-x-0 h-full min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
               {phase === 'playing' && (
-                <div className='w-full h-fit py-4  flex flex-col justify-center items-center gap-3'>
+                <div className='w-full h-fit py-4 flex flex-col justify-center items-center gap-3'>
                   <p className='text-[15px] text-primary'>{current.text}</p>
                   <div className='relative w-3/5 max-w-[240px] min-w-[120px]'>
                     <input
