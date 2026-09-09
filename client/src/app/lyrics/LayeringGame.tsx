@@ -814,7 +814,7 @@ export const LayeringGame = ({
                 </div>
               )}
               {phase === 'done' && (
-                <div className='flex h-full  flex-col justify-start py-10 items-center gap-4'>
+                <div className='flex h-full  flex-col justify-start py-16 items-center gap-4'>
                   <p className='text-[15px]'>
                     소란(SORAN) EP [Layer] <br />
                     26.09.18 6PM (KST)
