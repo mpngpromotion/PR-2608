@@ -235,13 +235,20 @@ export const LayeringGame = ({
       Matter.World.add(engine.world, [ground, left, right])
       wallsRef.current = { ground, left, right }
 
-      // 이미 쌓여있던 단어들을 이전 크기 대비 비율로 옮기고 재움 상태를 풀어준다 — sleeping
-      // 바디는 물리 스텝에서 아예 빠지기 때문에 위치만 옮기고 깨우지 않으면 겹친 채로 굳거나
-      // 바닥에서 살짝 뜬 채로 영원히 멈춰있게 된다.
+      // 키보드가 열리고 닫힐 때처럼 폭은 같고 높이만 바뀌면, 바닥 이동량만큼 모든 단어를
+      // 함께 옮긴다. 쌓인 상대 위치와 sleeping 상태를 그대로 보존하므로 키보드가 사라진 뒤
+      // 단어들이 깨어나 다시 떨어지지 않는다. 실제 화면 폭까지 바뀐 경우에만 새 영역에 맞춰
+      // 비율로 재배치하고 충돌을 다시 정리하도록 깨운다.
       if (prevSize && prevSize.width > 0 && prevSize.height > 0) {
+        const isHeightOnlyResize = Math.abs(width - prevSize.width) < 1
         const scaleX = width / prevSize.width
         const scaleY = height / prevSize.height
         bodiesRef.current.forEach((body) => {
+          if (isHeightOnlyResize) {
+            Matter.Body.translate(body, { x: 0, y: height - prevSize.height })
+            return
+          }
+
           const halfW = (body.bounds.max.x - body.bounds.min.x) / 2
           const halfH = (body.bounds.max.y - body.bounds.min.y) / 2
           const nx = Math.min(Math.max(body.position.x * scaleX, halfW), Math.max(width - halfW, halfW))
@@ -681,13 +688,14 @@ export const LayeringGame = ({
     <div
       className={classNames(
         'relative w-full h-full flex flex-col items-center',
-        (phase === 'playing' || phase === 'done') && 'lyrics-game-active',
+        phase === 'playing' && 'lyrics-game-active',
       )}
     >
       <div
         className={classNames(
           'w-full flex flex-row items-center justify-between px-3 py-2',
-          (phase === 'playing' || phase === 'done') && 'absolute inset-x-0 -top-14 z-20',
+          phase === 'playing' && 'absolute inset-x-0 -top-14 z-20',
+          phase === 'done' && 'absolute inset-x-0 top-0 z-20',
         )}
       >
         <button
@@ -769,7 +777,7 @@ export const LayeringGame = ({
                       onKeyDown={handleKeyDown}
                       readOnly={matchedColor !== null}
                       className={classNames(
-                        'w-full border border-primary/30 pl-3 pr-10 py-1.5 text-center text-[15px]',
+                        'w-full border border-primary/30 px-10 py-1.5 text-center text-[15px]',
                         inputColor ? COLOR_CLASS[inputColor] : 'text-black',
                         wrongInputShaking && 'animate-lyrics-text-shake motion-reduce:animate-none',
                       )}
