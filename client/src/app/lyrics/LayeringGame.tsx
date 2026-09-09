@@ -760,7 +760,7 @@ export const LayeringGame = ({
               {phase === 'playing' && (
                 <div className='w-full h-fit py-4 flex flex-col justify-center items-center gap-3'>
                   <p className='text-[15px] text-primary'>{current.text}</p>
-                  <div className='relative w-3/5 max-w-[240px] min-w-[120px]'>
+                  <div className='relative w-full max-w-[240px]'>
                     <input
                       key={inputGen}
                       ref={inputRef}
@@ -769,7 +769,7 @@ export const LayeringGame = ({
                       onKeyDown={handleKeyDown}
                       readOnly={matchedColor !== null}
                       className={classNames(
-                        'w-full border border-primary/30 px-10 py-1.5 text-center text-[15px]',
+                        'w-full border border-primary/30 pl-3 pr-10 py-1.5 text-center text-[15px]',
                         inputColor ? COLOR_CLASS[inputColor] : 'text-black',
                         wrongInputShaking && 'animate-lyrics-text-shake motion-reduce:animate-none',
                       )}
