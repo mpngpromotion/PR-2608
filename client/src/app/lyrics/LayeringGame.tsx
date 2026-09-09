@@ -53,10 +53,12 @@ export const LayeringGame = ({
   segments,
   audioSrc,
   replayAudioSrc,
+  isFullOpen = false,
 }: {
   segments: LyricsSegment[]
   audioSrc: string
   replayAudioSrc?: string
+  isFullOpen?: boolean
 }) => {
   const [phase, setPhase] = useState<'idle' | 'loading' | 'playing' | 'done'>('idle')
   const [index, setIndex] = useState(0)
@@ -715,10 +717,17 @@ export const LayeringGame = ({
         {phase === 'idle' || phase === 'loading' ? (
           <div className='w-full h-full flex flex-col items-center justify-center gap-5 px-10 text-center'>
             <div className='flex -mt-12 flex-col items-center gap-3'>
-              <p className='text-[15px] leading-relaxed'>
-                소란의 신곡 &apos;이별직전&apos;을 <br />
-                Layering Game을 통해 미리 들어보세요!
-              </p>
+              {isFullOpen ? (
+                <p className='text-[15px] leading-relaxed'>
+                  &#xC18C;&#xB780;&#xC758; &#xC2E0;&#xACE1; &apos;&#xC774;&#xBCC4;&#xC9C1;&#xC804;&apos;&#xC744; <br />
+                  Layering Game&#xC73C;&#xB85C; &#xB4E4;&#xC5B4;&#xBCF4;&#xC138;&#xC694;!
+                </p>
+              ) : (
+                <p className='text-[15px] leading-relaxed'>
+                  소란의 신곡 &apos;이별직전&apos;을 <br />
+                  Layering Game을 통해 미리 들어보세요!
+                </p>
+              )}
               <p className='text-[13px] leading-relaxed'>
                 가사를 입력한 뒤 엔터를 누르면 노래가 재생됩니다. <br />
                 원활한 감상을 위해 무음 모드를 해제해 주세요.

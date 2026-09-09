@@ -34,7 +34,7 @@ export const LyricsGameGate = ({
     applyPreview()
   }, [])
 
-  if (previewFull) return <LayeringGame segments={allSegments} audioSrc={audioSrc} />
+  if (previewFull) return <LayeringGame segments={allSegments} audioSrc={audioSrc} isFullOpen />
 
   return (
     <DisplayByDate date={FULL_OPEN_DATE}>
@@ -43,6 +43,7 @@ export const LyricsGameGate = ({
           segments={isFullOpen ? allSegments : day1Segments}
           audioSrc={audioSrc}
           replayAudioSrc={isFullOpen ? undefined : day1ReplayAudioSrc}
+          isFullOpen={isFullOpen}
         />
       )}
     </DisplayByDate>
