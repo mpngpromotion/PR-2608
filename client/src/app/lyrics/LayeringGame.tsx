@@ -42,6 +42,10 @@ const MATCH_HOLD_MS = 120
 const REPLAY_BUFFER_MS = 400
 // 정답을 입력하고도 제출하지 않았을 때 Enter 아이콘을 다시 흔들어 주는 간격.
 const ENTER_REMINDER_MS = 1500
+// Keep wider gaps while the early pile is small, then shorten them as longer lyrics
+// make the middle and late-game pile grow faster (8-word gaps, then 7, then 6).
+const MOBILE_STACK_GROWTH_POINTS = [9, 17, 25, 33, 41, 49, 56, 63, 70, 77, 83, 89, 95, 101]
+const MOBILE_STACK_GROWTH_STEP = 28
 
 // 띄어쓰기 유무와 IME의 유니코드 조합 방식 차이는 정답 여부에 영향을 주지 않게 한다.
 const normalizeLyrics = (text: string) => text.normalize('NFC').replace(/\s/g, '')
@@ -77,8 +81,8 @@ export const LayeringGame = ({
   const [replayCurrentText, setReplayCurrentText] = useState<string | null>(null)
   const [wrongInputShaking, setWrongInputShaking] = useState(false)
   const [enterIconShaking, setEnterIconShaking] = useState(false)
-  // 키보드가 레이아웃을 줄이지 않고 화면 위를 덮는 모바일 브라우저에서, 물리 바닥을 키보드
-  // 위로 올리기 위한 높이. 레이아웃 자체가 줄어드는 브라우저에서는 0으로 유지된다.
+  // 가사 클리핑 영역의 높이는 그대로 유지하고, 키보드가 화면을 덮는 만큼 부모 전체를 위로 옮긴다.
+  // 내부 물리 영역의 누적 확장과 분리된 값이라 키보드를 열고 닫아도 누적 높이는 바뀌지 않는다.
   const [keyboardInset, setKeyboardInset] = useState(0)
   // 정타마다 값이 바뀐다 — <input>의 key로 써서 구간이 넘어갈 때마다 인풋 DOM 노드를 통째로
   // 새로 만든다. 이전 노드에 남아있을 수 있는 IME 조합 버퍼나, 그 노드를 향해 아직 날아오고
@@ -114,6 +118,8 @@ export const LayeringGame = ({
   const loadGenerationRef = useRef(0)
 
   const floorRef = useRef<HTMLDivElement>(null)
+  // 화면을 다섯 구간으로 나눠 한 묶음마다 각 구간을 한 번씩 쓰되, 사용 순서는 매번 섞는다.
+  const spawnLaneBagRef = useRef<number[]>([])
   const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null)
   const engineRef = useRef<Matter.Engine | null>(null)
   const bodiesRef = useRef<Map<string, Matter.Body>>(new Map())
@@ -177,8 +183,8 @@ export const LayeringGame = ({
           return
         }
 
-        // iOS처럼 키보드가 layout viewport를 줄이지 않고 visual viewport만 가리는 경우의
-        // 실제 하단 가림 높이. Android처럼 innerHeight도 같이 줄어들면 자연스럽게 0이 된다.
+        // iOS처럼 키보드가 layout viewport를 줄이지 않고 visual viewport만 덮는 경우의 가림 높이.
+        // Android처럼 layout viewport도 함께 줄어들면 추가 이동이 중복되지 않도록 0이 된다.
         const coveredHeight = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
         setKeyboardInset(Math.round(coveredHeight))
       })
@@ -224,9 +230,7 @@ export const LayeringGame = ({
       const height = floor.clientHeight
       if (width <= 0 || height <= 0) return
 
-      // 모바일 키보드가 나타날 때는 주로 폭은 그대로이고 높이만 변한다. 이전에는 이 변화를
-      // 무시했지만, 그러면 물리 바닥이 키보드 뒤에 남는다. 높이 변화도 반영해 벽과 기존 가사를
-      // 새로 보이는 영역 안으로 함께 이동시킨다.
+      // 실제 레이아웃 크기가 바뀌면 벽과 기존 가사를 새 영역 안으로 함께 이동시킨다.
       const prevSize = lastFloorSizeRef.current
 
       const prevWalls = wallsRef.current
@@ -263,10 +267,12 @@ export const LayeringGame = ({
     })
     observer.observe(floor)
     return () => observer.disconnect()
-  }, [phase, keyboardInset])
+  }, [phase])
 
   const current = segments[index]
   const inputColor = matchedColor ?? readyColor
+  const mobileGrowthSteps = MOBILE_STACK_GROWTH_POINTS.filter((point) => stacked.length >= point).length
+  const mobileFloorGrowth = isFullOpen ? mobileGrowthSteps * MOBILE_STACK_GROWTH_STEP : 0
 
   const stopActiveSources = () => {
     activeSourcesRef.current.forEach((source) => {
@@ -437,6 +443,7 @@ export const LayeringGame = ({
     lastFloorSizeRef.current = null
     bodiesRef.current.clear()
     elementsRef.current.clear()
+    spawnLaneBagRef.current = []
   }
 
   // 정타 처리된 가사를 화면 위쪽 중앙 부근에서 수평으로 떨어뜨린다. 좌우 관성을 주는 대신
@@ -453,11 +460,30 @@ export const LayeringGame = ({
 
     const engine = ensureWorld()
     const containerWidth = floorRef.current?.clientWidth ?? 320
-    // 고정 픽셀 범위는 넓은 화면에서 사실상 한 지점과 같아져 탑이 만들어진다. 화면 너비에
-    // 비례한 중앙 영역에 분산해 떨어뜨리되, 글자가 벽 밖에서 생성되지는 않게 제한한다.
-    const maxSpawnOffset = Math.min(containerWidth * 0.2, Math.max((containerWidth - width) / 2, 0))
-    const x = containerWidth / 2 + (Math.random() * 2 - 1) * maxSpawnOffset
-    const y = -40
+    // 다섯 개가 떨어지는 동안 각 구간을 정확히 한 번씩 사용한다. 구간 순서는 매 묶음마다
+    // 새로 섞고, 선택된 구간 안에서도 중심 기준 60% 범위를 랜덤하게 사용한다.
+    if (spawnLaneBagRef.current.length === 0) {
+      const lanes = [0, 1, 2, 3, 4]
+      for (let i = lanes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const previous = lanes[i]
+        lanes[i] = lanes[j]
+        lanes[j] = previous
+      }
+      spawnLaneBagRef.current = lanes
+    }
+    const lane = spawnLaneBagRef.current.pop() ?? 2
+    const safeLeft = width / 2
+    const safeRight = Math.max(containerWidth - width / 2, safeLeft)
+    const laneWidth = (safeRight - safeLeft) / 5
+    const laneCenter = safeLeft + laneWidth * (lane + 0.5)
+    const x = laneCenter + (Math.random() * 2 - 1) * laneWidth * 0.3
+    // 바깥 클리핑 영역은 키보드에 따라 이동하고, 전체 공개 버전의 물리 영역은 가사가 쌓일수록
+    // 아래로 길어진다. 고정된 로컬 y를 쓰면 두 영역의 위치 변화에 따라 낙하 시작점이 화면 위로
+    // 밀리므로, 매번 실제 인풋 위치를 물리 영역 좌표로 환산해 인풋 바로 아래에서 시작시킨다.
+    const floorRect = floorRef.current?.getBoundingClientRect()
+    const inputRect = inputRef.current?.getBoundingClientRect()
+    const y = floorRect && inputRect ? inputRect.bottom - floorRect.top + height / 2 + 4 : -40
 
     const body = Matter.Bodies.rectangle(x, y, width, height, {
       angle: 0,
@@ -754,23 +780,35 @@ export const LayeringGame = ({
           </div>
         ) : (
           <>
-            <div ref={floorRef} className='absolute inset-x-0 top-24 overflow-hidden' style={{ bottom: keyboardInset }}>
-              {stacked.map((w) => (
-                <span
-                  key={w.key}
-                  ref={(el) => {
-                    if (el) elementsRef.current.set(w.key, el)
-                    else elementsRef.current.delete(w.key)
-                  }}
-                  className={classNames(
-                    'absolute top-0 left-0 flex items-center justify-center text-[14px] whitespace-nowrap select-none',
-                    COLOR_CLASS[w.color],
-                  )}
-                  style={{ width: w.width, height: w.height, willChange: 'transform' }}
-                >
-                  {w.text}
-                </span>
-              ))}
+            <div
+              className='absolute inset-x-0 top-24 bottom-0 overflow-hidden'
+              style={{ transform: `translateY(-${keyboardInset}px)` }}
+            >
+              <div
+                ref={floorRef}
+                className={classNames(
+                  'lyrics-stack-floor absolute inset-x-0 top-0',
+                  isFullOpen && 'lyrics-stack-floor-full',
+                )}
+                style={{ '--lyrics-floor-growth': `min(${mobileFloorGrowth}px, 45dvh)` } as React.CSSProperties}
+              >
+                {stacked.map((w) => (
+                  <span
+                    key={w.key}
+                    ref={(el) => {
+                      if (el) elementsRef.current.set(w.key, el)
+                      else elementsRef.current.delete(w.key)
+                    }}
+                    className={classNames(
+                      'absolute top-0 left-0 flex items-center justify-center text-[14px] whitespace-nowrap select-none',
+                      COLOR_CLASS[w.color],
+                    )}
+                    style={{ width: w.width, height: w.height, willChange: 'transform' }}
+                  >
+                    {w.text}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className='absolute top-0 inset-x-0 h-full min-h-24 z-10 flex flex-col items-center justify-start gap-3 px-10'>
